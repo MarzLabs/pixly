@@ -1,0 +1,950 @@
+/* Styles scoped to the Pixly Shadow DOM. They cannot leak to the host page
+   because they live inside a closed shadow root. Use design tokens (replicated
+   here as CSS variables) to stay consistent across the popup, the floating UI
+   and the inspector panel. */
+
+:host {
+    all: initial;
+    color-scheme: light dark;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', 'Geist', Roboto, Helvetica, Arial, sans-serif;
+    font-size: 12px;
+    line-height: 1.4;
+    pointer-events: none;
+
+    --pixly-gray-100: #F4F4F5;
+    --pixly-gray-200: #E4E4E7;
+    --pixly-gray-400: #A1A1AA;
+    --pixly-gray-600: #52525B;
+    --pixly-gray-700: #3F3F46;
+    --pixly-gray-800: #27272A;
+    --pixly-gray-900: #18181B;
+    --pixly-gray-950: #09090B;
+    --pixly-accent: #5B5BF7;
+    --pixly-accent-hover: #4F4FE0;
+    --pixly-accent-subtle: rgba(91, 91, 247, 0.10);
+    --pixly-accent-border: rgba(91, 91, 247, 0.40);
+    --pixly-pinned: #F59E0B;
+    --pixly-pinned-subtle: rgba(245, 158, 11, 0.10);
+    --pixly-snap: #10B981;
+    --pixly-auto-guide: rgba(245, 158, 11, 0.55);
+    --pixly-manual-guide: #FF00FF;
+    --pixly-selected: #5B5BF7;
+    --pixly-overlay-bg: rgba(24, 24, 27, 0.95);
+    --pixly-overlay-text: #F4F4F5;
+    --pixly-overlay-muted: #A1A1AA;
+    --pixly-overlay-border: rgba(255, 255, 255, 0.08);
+    --pixly-motion-fast: 120ms;
+    --pixly-motion-med: 160ms;
+    --pixly-easing: cubic-bezier(0.4, 0, 0.2, 1);
+    --pixly-radius-sm: 4px;
+    --pixly-radius-md: 6px;
+    --pixly-radius-lg: 8px;
+    --pixly-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12);
+    --pixly-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.pixly-layer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 2147483640;
+}
+
+.pixly-layer.interactive {
+    pointer-events: auto;
+}
+
+.pixly-highlight {
+    position: fixed;
+    box-sizing: border-box;
+    outline: 1.5px solid var(--pixly-accent);
+    outline-offset: 0;
+    background: var(--pixly-accent-subtle);
+    pointer-events: none;
+    transition: none;
+}
+
+.pixly-highlight.pinned {
+    outline-color: var(--pixly-pinned);
+    background: var(--pixly-pinned-subtle);
+    outline-width: 2px;
+}
+
+.pixly-pin-marker {
+    position: fixed;
+    background: var(--pixly-pinned);
+    color: white;
+    border-radius: var(--pixly-radius-full, 999px);
+    padding: 2px 8px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    pointer-events: none;
+    z-index: 2147483642;
+    box-shadow: var(--pixly-shadow-md);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.pixly-pin-marker::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    background: white;
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.4);
+}
+
+.pixly-outline-only {
+    background: transparent;
+}
+
+.pixly-distance-label {
+    position: fixed;
+    background: var(--pixly-gray-900);
+    color: var(--pixly-overlay-text);
+    padding: 2px 6px;
+    border-radius: var(--pixly-radius-sm);
+    font-size: 11px;
+    font-weight: 500;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 2147483642;
+    box-shadow: var(--pixly-shadow-md);
+    border: 1px solid var(--pixly-overlay-border);
+}
+
+.pixly-distance-label.live {
+    background: var(--pixly-accent);
+    border-color: transparent;
+}
+
+.pixly-distance-line {
+    position: fixed;
+    background: var(--pixly-accent);
+    pointer-events: none;
+    z-index: 2147483642;
+    opacity: 0.85;
+}
+
+.pixly-distance-line.dashed {
+    background: transparent;
+    border-top: 1px dashed var(--pixly-accent);
+    height: 0 !important;
+}
+
+.pixly-distance-line.vertical-dashed {
+    background: transparent;
+    border-left: 1px dashed var(--pixly-accent);
+    width: 0 !important;
+}
+
+.pixly-tooltip {
+    position: fixed;
+    background: var(--pixly-overlay-bg);
+    color: var(--pixly-overlay-text);
+    padding: 8px 10px;
+    border-radius: var(--pixly-radius-md);
+    font-size: 12px;
+    line-height: 1.4;
+    max-width: 280px;
+    pointer-events: auto;
+    box-shadow: var(--pixly-shadow-md);
+    z-index: 2147483645;
+    border: 1px solid var(--pixly-overlay-border);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.pixly-tooltip strong {
+    color: var(--pixly-overlay-text);
+    font-weight: 600;
+}
+
+.pixly-tooltip .pixly-tooltip-muted {
+    color: var(--pixly-overlay-muted);
+    font-size: 11px;
+}
+
+.pixly-tooltip-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 2px;
+}
+
+.pixly-tooltip-row button {
+    background: transparent;
+    color: var(--pixly-accent);
+    border: 1px solid var(--pixly-accent-border);
+    border-radius: var(--pixly-radius-sm);
+    padding: 2px 8px;
+    font-size: 10px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background var(--pixly-motion-fast) var(--pixly-easing);
+}
+
+.pixly-tooltip-row button:hover {
+    background: var(--pixly-accent);
+    color: white;
+}
+
+/* ---------- Unified hover tooltip ---------- */
+
+/* The shared hover tooltip aggregates sections contributed by every active
+   hover tool (typography, color picker, inspector dimensions). The header
+   shows a compact selector for the element under cursor; sections are
+   separated by a thin divider so the user can scan them quickly. */
+
+.pixly-hover-tooltip {
+    min-width: 200px;
+}
+
+.pixly-hover-tooltip-header {
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 11px;
+    color: var(--pixly-overlay-text);
+    font-weight: 600;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--pixly-overlay-border);
+    word-break: break-all;
+}
+
+.pixly-hover-tooltip-section {
+    padding-top: 6px;
+}
+
+.pixly-hover-tooltip-section.has-divider {
+    margin-top: 6px;
+    border-top: 1px solid var(--pixly-overlay-border);
+}
+
+.pixly-hover-tooltip-section-title {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--pixly-overlay-muted);
+    margin-bottom: 2px;
+}
+
+.pixly-hover-tooltip-static {
+    color: var(--pixly-overlay-text);
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 11px;
+}
+
+.pixly-notification {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--pixly-overlay-bg);
+    color: var(--pixly-overlay-text);
+    padding: 8px 14px;
+    border-radius: var(--pixly-radius-md);
+    font-size: 12px;
+    z-index: 2147483647;
+    pointer-events: none;
+    box-shadow: var(--pixly-shadow-lg);
+    border: 1px solid var(--pixly-overlay-border);
+    animation: pixly-fade 1.8s ease-out forwards;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+@keyframes pixly-fade {
+    0% { opacity: 0; transform: translate(-50%, -8px); }
+    10% { opacity: 1; transform: translate(-50%, 0); }
+    80% { opacity: 1; transform: translate(-50%, 0); }
+    100% { opacity: 0; transform: translate(-50%, -8px); }
+}
+
+.pixly-spacing-padding {
+    position: fixed;
+    background: rgba(126, 217, 87, 0.35);
+    pointer-events: none;
+    z-index: 2147483639;
+}
+
+.pixly-spacing-margin {
+    position: fixed;
+    background: rgba(255, 165, 0, 0.35);
+    pointer-events: none;
+    z-index: 2147483638;
+}
+
+.pixly-grid-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 2147483600;
+    display: flex;
+    justify-content: center;
+}
+
+.pixly-grid-container {
+    height: 100%;
+    display: flex;
+    pointer-events: none;
+}
+
+.pixly-grid-column {
+    flex: 1;
+    background: rgba(255, 0, 255, 0.15);
+    pointer-events: none;
+}
+
+/* Manual guides: created by the user, can be selected, nudged and removed. */
+.pixly-guide {
+    position: fixed;
+    pointer-events: auto;
+    z-index: 2147483641;
+    background: transparent;
+}
+
+.pixly-guide::before {
+    content: '';
+    position: absolute;
+    background: var(--pixly-manual-guide);
+    pointer-events: none;
+    transition: background var(--pixly-motion-fast) var(--pixly-easing);
+}
+
+.pixly-guide.horizontal {
+    cursor: ns-resize;
+}
+
+.pixly-guide.horizontal::before {
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 1px;
+    transform: translateY(-50%);
+}
+
+.pixly-guide.vertical {
+    cursor: ew-resize;
+}
+
+.pixly-guide.vertical::before {
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 1px;
+    transform: translateX(-50%);
+}
+
+.pixly-guide.selected::before {
+    background: var(--pixly-selected);
+    box-shadow: 0 0 0 0.5px var(--pixly-selected);
+}
+
+.pixly-guide.snapping::before {
+    background: var(--pixly-snap);
+    box-shadow: 0 0 4px var(--pixly-snap);
+}
+
+/* Auto guides: read-only, appear when an element is pinned. */
+.pixly-auto-guide {
+    position: fixed;
+    pointer-events: none;
+    z-index: 2147483635;
+}
+
+.pixly-auto-guide.horizontal {
+    left: 0;
+    right: 0;
+    height: 1px;
+    border-top: 1px dashed var(--pixly-auto-guide);
+    background: transparent;
+}
+
+.pixly-auto-guide.vertical {
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    border-left: 1px dashed var(--pixly-auto-guide);
+    background: transparent;
+}
+
+.pixly-guide-pair-label {
+    position: fixed;
+    background: var(--pixly-gray-900);
+    color: var(--pixly-overlay-text);
+    padding: 1px 5px;
+    border-radius: var(--pixly-radius-sm);
+    font-size: 10px;
+    font-weight: 500;
+    pointer-events: none;
+    z-index: 2147483642;
+    border: 1px solid var(--pixly-overlay-border);
+    transform: translate(-50%, -50%);
+    white-space: nowrap;
+}
+
+.pixly-snap-indicator {
+    position: fixed;
+    width: 8px;
+    height: 8px;
+    background: var(--pixly-snap);
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 2147483643;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
+}
+
+.pixly-magnifier {
+    position: fixed;
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    border: 2px solid var(--pixly-accent);
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 2147483645;
+    box-shadow: var(--pixly-shadow-lg);
+    background: white;
+}
+
+.pixly-magnifier-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.pixly-image-overlay {
+    position: absolute;
+    pointer-events: auto;
+    cursor: move;
+    z-index: 2147483600;
+    user-select: none;
+}
+
+.pixly-image-overlay img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+.pixly-side-by-side {
+    position: fixed;
+    inset: 0;
+    background: rgba(9, 9, 11, 0.92);
+    z-index: 2147483646;
+    display: flex;
+    flex-direction: column;
+    pointer-events: auto;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+}
+
+.pixly-side-by-side-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    background: var(--pixly-gray-950);
+    color: white;
+    border-bottom: 1px solid var(--pixly-overlay-border);
+}
+
+.pixly-side-by-side-toolbar button {
+    background: var(--pixly-accent);
+    color: white;
+    border: none;
+    border-radius: var(--pixly-radius-sm);
+    padding: 5px 12px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+    transition: background var(--pixly-motion-fast) var(--pixly-easing);
+}
+
+.pixly-side-by-side-toolbar button:hover {
+    background: var(--pixly-accent-hover);
+}
+
+.pixly-side-by-side-content {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+}
+
+.pixly-side-by-side-panel {
+    flex: 1;
+    overflow: auto;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 16px;
+    background: var(--pixly-gray-900);
+    border-right: 1px solid var(--pixly-overlay-border);
+}
+
+.pixly-side-by-side-panel:last-child {
+    border-right: none;
+}
+
+.pixly-side-by-side-panel img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+}
+
+.pixly-distance-marker {
+    position: fixed;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--pixly-pinned);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 12px;
+    pointer-events: none;
+    z-index: 2147483642;
+    box-shadow: var(--pixly-shadow-md);
+    border: 2px solid white;
+}
+
+/* ---------- Inspector panel (sidebar) ---------- */
+
+.pixly-inspector-panel {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    width: 320px;
+    background: var(--pixly-overlay-bg);
+    color: var(--pixly-overlay-text);
+    pointer-events: auto;
+    z-index: 2147483620;
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--pixly-shadow-lg);
+    border-left: 1px solid var(--pixly-overlay-border);
+    transform: translateX(0);
+    transition: transform var(--pixly-motion-med) var(--pixly-easing);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.pixly-inspector-panel.side-right {
+    right: 0;
+}
+
+.pixly-inspector-panel.side-left {
+    left: 0;
+    border-left: none;
+    border-right: 1px solid var(--pixly-overlay-border);
+}
+
+.pixly-inspector-panel.hidden.side-right {
+    transform: translateX(100%);
+}
+
+.pixly-inspector-panel.hidden.side-left {
+    transform: translateX(-100%);
+}
+
+.pixly-inspector-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--pixly-overlay-border);
+    gap: 8px;
+}
+
+.pixly-inspector-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--pixly-overlay-text);
+    letter-spacing: 0.02em;
+}
+
+.pixly-inspector-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.pixly-icon-btn {
+    background: transparent;
+    border: 1px solid var(--pixly-overlay-border);
+    color: var(--pixly-overlay-muted);
+    border-radius: var(--pixly-radius-sm);
+    padding: 3px 8px;
+    font-size: 11px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all var(--pixly-motion-fast) var(--pixly-easing);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.pixly-icon-btn svg {
+    display: block;
+}
+
+.pixly-icon-btn:hover:not(:disabled) {
+    background: var(--pixly-accent-subtle);
+    color: var(--pixly-overlay-text);
+    border-color: var(--pixly-accent-border);
+}
+
+.pixly-icon-btn.active {
+    background: var(--pixly-accent);
+    color: white;
+    border-color: var(--pixly-accent);
+}
+
+.pixly-icon-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.pixly-inspector-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 12px 16px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.pixly-inspector-empty {
+    color: var(--pixly-overlay-muted);
+    font-size: 12px;
+    text-align: center;
+    padding: 40px 16px;
+    line-height: 1.6;
+}
+
+.pixly-inspector-section {
+    border: 1px solid var(--pixly-overlay-border);
+    border-radius: var(--pixly-radius-md);
+    overflow: hidden;
+    margin-top: 6px;
+}
+
+.pixly-inspector-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    cursor: pointer;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    color: var(--pixly-overlay-muted);
+    background: rgba(255, 255, 255, 0.02);
+    user-select: none;
+}
+
+.pixly-inspector-section-header:hover {
+    color: var(--pixly-overlay-text);
+}
+
+.pixly-inspector-section-body {
+    padding: 8px 10px 10px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+}
+
+.pixly-inspector-section.collapsed .pixly-inspector-section-body {
+    display: none;
+}
+
+.pixly-inspector-chevron {
+    transition: transform var(--pixly-motion-fast) var(--pixly-easing);
+}
+
+.pixly-inspector-section.collapsed .pixly-inspector-chevron {
+    transform: rotate(-90deg);
+}
+
+.pixly-inspector-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 0;
+}
+
+.pixly-inspector-label {
+    color: var(--pixly-overlay-muted);
+    font-size: 11px;
+    flex-shrink: 0;
+}
+
+.pixly-inspector-value {
+    color: var(--pixly-overlay-text);
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 11px;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: var(--pixly-radius-sm);
+    transition: background var(--pixly-motion-fast) var(--pixly-easing);
+    text-align: right;
+    word-break: break-all;
+    border: 1px solid transparent;
+}
+
+.pixly-inspector-value:hover {
+    background: var(--pixly-accent-subtle);
+    border-color: var(--pixly-accent-border);
+}
+
+.pixly-inspector-value.copied {
+    background: var(--pixly-snap);
+    color: white;
+}
+
+.pixly-color-swatch {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    margin-right: 6px;
+    vertical-align: middle;
+    border: 1px solid var(--pixly-overlay-border);
+}
+
+.pixly-box-model {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px 6px;
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 10px;
+}
+
+.pixly-box-model-layer {
+    border: 1px solid var(--pixly-overlay-border);
+    border-radius: var(--pixly-radius-sm);
+    padding: 14px 28px;
+    margin: 4px;
+    position: relative;
+    color: var(--pixly-overlay-muted);
+    background: rgba(255, 255, 255, 0.02);
+    text-align: center;
+}
+
+.pixly-box-model-layer .pixly-box-label {
+    position: absolute;
+    top: 2px;
+    left: 6px;
+    font-size: 9px;
+    color: var(--pixly-overlay-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.pixly-box-model-layer.margin {
+    border-color: rgba(255, 165, 0, 0.45);
+    background: rgba(255, 165, 0, 0.06);
+}
+
+.pixly-box-model-layer.padding {
+    border-color: rgba(126, 217, 87, 0.45);
+    background: rgba(126, 217, 87, 0.06);
+}
+
+.pixly-box-model-layer.content {
+    background: var(--pixly-accent-subtle);
+    border-color: var(--pixly-accent-border);
+    color: var(--pixly-overlay-text);
+}
+
+.pixly-box-model-sides {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr;
+    grid-template-rows: auto auto auto;
+    grid-template-areas:
+        '. top .'
+        'left center right'
+        '. bottom .';
+    align-items: center;
+    justify-items: center;
+    gap: 0;
+    width: 100%;
+}
+
+.pixly-box-side-top { grid-area: top; }
+.pixly-box-side-bottom { grid-area: bottom; }
+.pixly-box-side-left { grid-area: left; }
+.pixly-box-side-right { grid-area: right; }
+.pixly-box-side-center { grid-area: center; }
+
+.pixly-dom-tree {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 11px;
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+}
+
+.pixly-dom-node {
+    padding: 3px 6px;
+    border-radius: var(--pixly-radius-sm);
+    cursor: pointer;
+    color: var(--pixly-overlay-muted);
+    transition: all var(--pixly-motion-fast) var(--pixly-easing);
+    border: 1px solid transparent;
+}
+
+.pixly-dom-node:hover {
+    background: var(--pixly-accent-subtle);
+    color: var(--pixly-overlay-text);
+    border-color: var(--pixly-accent-border);
+}
+
+.pixly-dom-node.parent {
+    color: var(--pixly-pinned);
+}
+
+.pixly-dom-node.current {
+    background: var(--pixly-accent-subtle);
+    color: var(--pixly-overlay-text);
+    border-color: var(--pixly-accent-border);
+}
+
+.pixly-dom-node.children-header {
+    color: var(--pixly-overlay-muted);
+    cursor: default;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding-top: 6px;
+}
+
+.pixly-dom-node.children-header:hover {
+    background: transparent;
+    color: var(--pixly-overlay-muted);
+    border-color: transparent;
+}
+
+.pixly-dom-show-more {
+    text-align: center;
+    padding: 4px;
+    border-radius: var(--pixly-radius-sm);
+    color: var(--pixly-accent);
+    font-size: 11px;
+    cursor: pointer;
+    transition: background var(--pixly-motion-fast) var(--pixly-easing);
+}
+
+.pixly-dom-show-more:hover {
+    background: var(--pixly-accent-subtle);
+}
+
+/* ---------- Free guides: rulers visible only when the tool is on ---------- */
+
+.pixly-ruler {
+    position: fixed;
+    background: var(--pixly-overlay-bg);
+    color: var(--pixly-overlay-muted);
+    pointer-events: auto;
+    z-index: 2147483643;
+    overflow: hidden;
+    border: 1px solid var(--pixly-overlay-border);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 9px;
+    user-select: none;
+    cursor: crosshair;
+}
+
+.pixly-ruler.horizontal {
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 24px;
+}
+
+.pixly-ruler.vertical {
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 24px;
+}
+
+.pixly-ruler-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    pointer-events: none;
+}
+
+.pixly-ruler-cursor {
+    position: absolute;
+    background: var(--pixly-accent);
+    pointer-events: none;
+}
+
+.pixly-ruler.horizontal .pixly-ruler-cursor {
+    top: 0;
+    bottom: 0;
+    width: 1px;
+}
+
+.pixly-ruler.vertical .pixly-ruler-cursor {
+    left: 0;
+    right: 0;
+    height: 1px;
+}
+
+.pixly-ruler-tooltip {
+    position: fixed;
+    background: var(--pixly-accent);
+    color: white;
+    padding: 2px 6px;
+    border-radius: var(--pixly-radius-sm);
+    font-size: 10px;
+    font-weight: 500;
+    pointer-events: none;
+    z-index: 2147483644;
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    box-shadow: var(--pixly-shadow-md);
+}
+
+/* ---------- Multi-selection bounding box & highlights ---------- */
+
+.pixly-multi-highlight {
+    position: fixed;
+    box-sizing: border-box;
+    outline: 1.5px solid var(--pixly-accent);
+    background: var(--pixly-accent-subtle);
+    pointer-events: none;
+    z-index: 2147483640;
+}
+
+.pixly-multi-bbox {
+    position: fixed;
+    box-sizing: border-box;
+    outline: 1px dashed var(--pixly-accent);
+    background: transparent;
+    pointer-events: none;
+    z-index: 2147483639;
+}
