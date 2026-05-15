@@ -15,6 +15,7 @@ export const ToolId = {
     Snapshot: 'snapshot',
     FreeGuides: 'free-guides',
     InspectorPanel: 'inspector-panel',
+    BrokenImages: 'broken-images',
 } as const;
 
 export type ToolIdValue = (typeof ToolId)[keyof typeof ToolId];
@@ -33,6 +34,7 @@ export const TOOL_LABELS: Record<ToolIdValue, string> = {
     [ToolId.Snapshot]: 'Snapshot & compare',
     [ToolId.FreeGuides]: 'Free guides',
     [ToolId.InspectorPanel]: 'Inspector panel',
+    [ToolId.BrokenImages]: 'Fix broken images',
 };
 
 // Tools belonging to each stage. Useful to render the popup grouped.
@@ -48,6 +50,7 @@ export const STAGE_1_TOOLS: ToolIdValue[] = [
     ToolId.FreeGuides,
     ToolId.DistanceMeter,
     ToolId.Magnifier,
+    ToolId.BrokenImages,
 ];
 
 export const STAGE_2_TOOLS: ToolIdValue[] = [

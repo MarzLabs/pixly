@@ -2,6 +2,7 @@
 // maintains active state across the page lifecycle.
 
 import { ToolId, type ToolIdValue } from '@/shared/constants/tools';
+import { BrokenImagesTool } from './tools/broken-images-tool';
 import { ColorApplierTool } from './tools/color-applier-tool';
 import { ColorPickerTool } from './tools/color-picker-tool';
 import { DistanceMeterTool } from './tools/distance-meter-tool';
@@ -41,6 +42,7 @@ export function createToolRegistry(): RegistryEntry[] {
         { id: ToolId.Magnifier, tool: new MagnifierTool() },
         { id: ToolId.ImageOverlay, tool: new ImageOverlayTool() },
         { id: ToolId.Snapshot, tool: new SnapshotTool() },
+        { id: ToolId.BrokenImages, tool: new BrokenImagesTool() },
     ];
 }
 

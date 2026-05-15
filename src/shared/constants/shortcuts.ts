@@ -31,6 +31,7 @@ export const DEFAULT_SHORTCUTS: Record<ToolIdValue, KeyboardShortcut | null> = {
     [ToolId.Snapshot]: { modifiers: [ModifierKey.Alt, ModifierKey.Shift], key: 'S' },
     [ToolId.FreeGuides]: { modifiers: [ModifierKey.Alt, ModifierKey.Shift], key: 'R' },
     [ToolId.InspectorPanel]: { modifiers: [ModifierKey.Alt], key: 'P' },
+    [ToolId.BrokenImages]: { modifiers: [ModifierKey.Alt], key: 'B' },
 };
 
 // Shortcuts the user must avoid because they clash with the browser or OS.

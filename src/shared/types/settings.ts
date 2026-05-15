@@ -47,6 +47,15 @@ export interface DistanceLineSettings {
     color: string;
 }
 
+export interface BrokenImagesSettings {
+    // Background color applied to the placeholder rendered in place of broken
+    // <img> elements. Any valid CSS color string (hex preferred).
+    backgroundColor: string;
+    // Maximum number of characters of the original image URL shown inside the
+    // placeholder. Truncation happens from the start, prefixed with `…`.
+    urlMaxChars: number;
+}
+
 export interface MigrationLogEntry {
     timestamp: number;
     message: string;
@@ -65,6 +74,7 @@ export interface UserSettings {
     inspectorPanel: InspectorPanelSettings;
     multiSelection: MultiSelectionSettings;
     distanceLine: DistanceLineSettings;
+    brokenImages: BrokenImagesSettings;
     showWelcomeMessage: boolean;
     migrationLog: MigrationLogEntry[];
 }

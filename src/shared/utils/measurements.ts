@@ -128,10 +128,24 @@ export function clipSegmentToViewport(
     viewport: Viewport,
     margin: number,
 ): ClippedSegment {
+    // Margin-inset bounds used only for visual positioning — keeps the line from
+    // touching the very screen edge so the fade-out mask is perceptible.
     const minX = margin;
     const maxX = viewport.width - margin;
     const minY = margin;
     const maxY = viewport.height - margin;
+
+    // Strict viewport bounds used exclusively for the clipped flags. An endpoint
+    // that lands inside [0, viewport] is truly on-screen; the clipped flag must
+    // only fire when the geometry was cut by the real screen boundary, not merely
+    // nudged inward by the cosmetic margin. Using the same margin-inset bounds
+    // for both positioning and clipping detection incorrectly marks in-viewport
+    // endpoints (e.g. parentRect.top === 0) as "clipped", which hides the
+    // arrowhead even though the line starts exactly at the page edge.
+    const strictMinX = 0;
+    const strictMaxX = viewport.width;
+    const strictMinY = 0;
+    const strictMaxY = viewport.height;
 
     const isHorizontal = start.y === end.y;
     const isVertical = start.x === end.x;
@@ -150,8 +164,10 @@ export function clipSegmentToViewport(
     const clampedEndX = clamp(originalEndX, minX, maxX);
     const clampedEndY = clamp(originalEndY, minY, maxY);
 
-    const clippedStart = clampedStartX !== originalStartX || clampedStartY !== originalStartY;
-    const clippedEnd = clampedEndX !== originalEndX || clampedEndY !== originalEndY;
+    const clippedStart = originalStartX < strictMinX || originalStartX > strictMaxX
+        || originalStartY < strictMinY || originalStartY > strictMaxY;
+    const clippedEnd = originalEndX < strictMinX || originalEndX > strictMaxX
+        || originalEndY < strictMinY || originalEndY > strictMaxY;
 
     const visibleLength = isHorizontal
         ? Math.abs(clampedEndX - clampedStartX)

@@ -4,6 +4,7 @@
 import { DEFAULT_SHORTCUTS } from '../constants/shortcuts';
 import { StorageKey } from '../constants/storage';
 import {
+    BROKEN_IMAGES_DEFAULTS,
     DEFAULT_PALETTE,
     DISTANCE_LINE_DEFAULTS,
     GRID_DEFAULTS,
@@ -50,6 +51,10 @@ export const DEFAULT_SETTINGS: UserSettings = {
     },
     distanceLine: {
         color: DISTANCE_LINE_DEFAULTS.color,
+    },
+    brokenImages: {
+        backgroundColor: BROKEN_IMAGES_DEFAULTS.backgroundColor,
+        urlMaxChars: BROKEN_IMAGES_DEFAULTS.urlMaxChars,
     },
     showWelcomeMessage: true,
     migrationLog: [],
@@ -120,6 +125,7 @@ export function migrateSettings(
         inspectorPanel: { ...defaults.inspectorPanel, ...(stored.inspectorPanel ?? {}) },
         multiSelection: { ...defaults.multiSelection, ...(stored.multiSelection ?? {}) },
         distanceLine: { ...defaults.distanceLine, ...(stored.distanceLine ?? {}) },
+        brokenImages: { ...defaults.brokenImages, ...(stored.brokenImages ?? {}) },
         showWelcomeMessage: stored.showWelcomeMessage ?? defaults.showWelcomeMessage,
         migrationLog: trimLog(log),
     };
@@ -148,6 +154,7 @@ function cloneDefaults(): UserSettings {
         inspectorPanel: { ...DEFAULT_SETTINGS.inspectorPanel },
         multiSelection: { ...DEFAULT_SETTINGS.multiSelection },
         distanceLine: { ...DEFAULT_SETTINGS.distanceLine },
+        brokenImages: { ...DEFAULT_SETTINGS.brokenImages },
         migrationLog: [],
     };
 }

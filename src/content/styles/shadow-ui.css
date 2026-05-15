@@ -26,6 +26,12 @@
        in src/shared/constants/ui.ts and is overridden at runtime via the
        content script when the user picks a custom color in the popup. */
     --pixly-distance-line: #F97316;
+    /* Half-width of the arrowhead drawn at each end of a dashed distance line.
+       The arrow is rendered as a CSS triangle (border trick) on the ::before
+       and ::after pseudo-elements of `.pixly-distance-line.dashed` and
+       `.pixly-distance-line.vertical-dashed`. Override on `:host` to resize
+       every arrowhead at once without touching individual selectors. */
+    --pixly-distance-arrow-size: 4px;
     --pixly-accent-subtle: rgba(91, 91, 247, 0.10);
     --pixly-accent-border: rgba(91, 91, 247, 0.40);
     --pixly-pinned: #F59E0B;
@@ -161,11 +167,75 @@
     filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.55));
 }
 
+/* Arrowheads at both ends of a horizontal dashed line. Built as CSS triangles
+   using the classic transparent-border trick so they inherit `--pixly-distance-line`
+   and stay crisp at any zoom. Width/height are derived from
+   `--pixly-distance-arrow-size`, so a single token resizes every arrow. */
+.pixly-distance-line.dashed::before,
+.pixly-distance-line.dashed::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    width: 0;
+    height: 0;
+    transform: translateY(-50%);
+    border-top: var(--pixly-distance-arrow-size) solid transparent;
+    border-bottom: var(--pixly-distance-arrow-size) solid transparent;
+}
+
+.pixly-distance-line.dashed::before {
+    left: 0;
+    border-right: var(--pixly-distance-arrow-size) solid var(--pixly-distance-line);
+}
+
+.pixly-distance-line.dashed::after {
+    right: 0;
+    border-left: var(--pixly-distance-arrow-size) solid var(--pixly-distance-line);
+}
+
 .pixly-distance-line.vertical-dashed {
     background: transparent;
     border-left: 1px dashed var(--pixly-distance-line);
     width: 0 !important;
     filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.55));
+}
+
+/* Arrowheads at both ends of a vertical dashed line. Mirror of the horizontal
+   variant above, rotated 90 degrees. */
+.pixly-distance-line.vertical-dashed::before,
+.pixly-distance-line.vertical-dashed::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    width: 0;
+    height: 0;
+    transform: translateX(-50%);
+    border-left: var(--pixly-distance-arrow-size) solid transparent;
+    border-right: var(--pixly-distance-arrow-size) solid transparent;
+}
+
+.pixly-distance-line.vertical-dashed::before {
+    top: 0;
+    border-bottom: var(--pixly-distance-arrow-size) solid var(--pixly-distance-line);
+}
+
+.pixly-distance-line.vertical-dashed::after {
+    bottom: 0;
+    border-top: var(--pixly-distance-arrow-size) solid var(--pixly-distance-line);
+}
+
+/* Hide the arrowhead on whichever end was clamped to the viewport — the line
+   was cut artificially there, so drawing an arrow at the clip would lie about
+   where the measured distance actually ends. The non-clipped end keeps its
+   arrow. */
+.pixly-distance-line.dashed.clipped-start::before,
+.pixly-distance-line.vertical-dashed.clipped-start::before {
+    display: none;
+}
+
+.pixly-distance-line.dashed.clipped-end::after,
+.pixly-distance-line.vertical-dashed.clipped-end::after {
+    display: none;
 }
 
 /* Fade-out modifiers applied when the adjacent-distance segment was clamped

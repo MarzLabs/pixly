@@ -106,6 +106,21 @@ export const DISTANCE_LINE_DEFAULTS = {
     color: '#F97316',
 } as const;
 
+// Broken-images placeholder defaults. Background mirrors the Gray200 design
+// token so the placeholder reads as neutral on light and medium backgrounds.
+export const BROKEN_IMAGES_DEFAULTS = {
+    backgroundColor: '#E4E4E7',
+    urlMaxChars: 40,
+    minUrlChars: 10,
+    maxUrlChars: 120,
+    minPlaceholderPx: 50,
+    minLabelPx: 80,
+    // Pages can contain thousands of <img> tags. Cap the upper bound to avoid
+    // pathological worst cases (e.g., infinite-scroll galleries) hanging the
+    // page when the tool activates.
+    maxObservedImages: 5000,
+} as const;
+
 // Nudge step sizes for selected guides (v2).
 export const NUDGE_STEP_PX = 1;
 export const NUDGE_LARGE_STEP_PX = 10;

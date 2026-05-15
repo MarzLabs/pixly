@@ -3,6 +3,7 @@
 
 import {
     BLEND_MODES,
+    BROKEN_IMAGES_DEFAULTS,
     DISTANCE_LINE_DEFAULTS,
     INSPECTOR_PANEL_DEFAULTS,
     MULTI_SELECTION_DEFAULTS,
@@ -13,6 +14,7 @@ import {
     TOOL_LABELS,
     type ToolIdValue,
 } from '@/shared/constants';
+import { clampUrlMaxChars } from '@/shared/utils/broken-images';
 import { MessageType, type PixlyMessage } from '@/shared/types/messages';
 import type { UserSettings } from '@/shared/types/settings';
 import { sendMessageToRuntime, sendMessageToTab } from '@/shared/messaging';
@@ -48,6 +50,7 @@ class PopupController {
         this.bindResetSettings();
         this.bindPreferences();
         this.bindDistanceLineColor();
+        this.bindBrokenImagesSettings();
         this.renderWelcomeBanner();
     }
 
@@ -528,6 +531,7 @@ class PopupController {
                 ...DEFAULT_SETTINGS,
                 palette: [...DEFAULT_SETTINGS.palette],
                 distanceLine: { ...DEFAULT_SETTINGS.distanceLine },
+                brokenImages: { ...DEFAULT_SETTINGS.brokenImages },
             };
             await this.persist();
             this.renderPalette();
@@ -547,6 +551,17 @@ class PopupController {
                 picker.value = this.settings.distanceLine.color;
                 hexInput.value = this.settings.distanceLine.color.toUpperCase();
                 hexInput.classList.remove('invalid');
+            }
+
+            const brokenBg = document.getElementById('broken-images-bg') as HTMLInputElement | null;
+            const brokenBgHex = document.getElementById('broken-images-bg-hex') as HTMLInputElement | null;
+            const brokenUrl = document.getElementById('broken-images-url-max') as HTMLInputElement | null;
+
+            if (brokenBg && brokenBgHex && brokenUrl) {
+                brokenBg.value = this.settings.brokenImages.backgroundColor;
+                brokenBgHex.value = this.settings.brokenImages.backgroundColor.toUpperCase();
+                brokenBgHex.classList.remove('invalid');
+                brokenUrl.value = String(this.settings.brokenImages.urlMaxChars);
             }
         });
     }
@@ -721,6 +736,67 @@ class PopupController {
             const defaultColor = DISTANCE_LINE_DEFAULTS.color;
             syncInputs(defaultColor);
             await applyColor(defaultColor);
+        });
+    }
+
+    private bindBrokenImagesSettings(): void {
+        const picker = document.getElementById('broken-images-bg') as HTMLInputElement | null;
+        const hexInput = document.getElementById('broken-images-bg-hex') as HTMLInputElement | null;
+        const resetButton = document.getElementById('broken-images-bg-reset') as HTMLButtonElement | null;
+        const urlInput = document.getElementById('broken-images-url-max') as HTMLInputElement | null;
+
+        if (!picker || !hexInput || !resetButton || !urlInput) {
+            return;
+        }
+
+        const syncColorInputs = (color: string): void => {
+            picker.value = color;
+            hexInput.value = color.toUpperCase();
+            hexInput.classList.remove('invalid');
+        };
+
+        const applyColor = async (color: string): Promise<void> => {
+            this.settings.brokenImages.backgroundColor = color;
+            await this.persist();
+        };
+
+        syncColorInputs(this.settings.brokenImages.backgroundColor);
+        urlInput.value = String(this.settings.brokenImages.urlMaxChars);
+        urlInput.min = String(BROKEN_IMAGES_DEFAULTS.minUrlChars);
+        urlInput.max = String(BROKEN_IMAGES_DEFAULTS.maxUrlChars);
+
+        picker.addEventListener('input', async () => {
+            const color = picker.value;
+            syncColorInputs(color);
+            await applyColor(color);
+        });
+
+        hexInput.addEventListener('change', async () => {
+            const raw = hexInput.value.trim();
+
+            if (!isValidHexColor(raw)) {
+                hexInput.classList.add('invalid');
+
+                return;
+            }
+
+            const expanded = expandShortHex(raw).toUpperCase();
+            syncColorInputs(expanded);
+            await applyColor(expanded);
+        });
+
+        resetButton.addEventListener('click', async () => {
+            const defaultColor = BROKEN_IMAGES_DEFAULTS.backgroundColor;
+            syncColorInputs(defaultColor);
+            await applyColor(defaultColor);
+        });
+
+        urlInput.addEventListener('change', async () => {
+            const parsed = parseInt(urlInput.value, 10);
+            const clamped = clampUrlMaxChars(parsed);
+            urlInput.value = String(clamped);
+            this.settings.brokenImages.urlMaxChars = clamped;
+            await this.persist();
         });
     }
 

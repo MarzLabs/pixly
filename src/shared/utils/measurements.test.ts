@@ -197,6 +197,40 @@ describe('clipSegmentToViewport', () => {
         expect(result.visibleLength).toBe(0);
     });
 
+    it('does not mark clipped when the start endpoint is exactly on the viewport edge (y=0)', () => {
+        // Regression: parentRect.top === 0 (body/html parent) was incorrectly
+        // triggering clippedStart=true because the cosmetic margin (4px) was
+        // also used as the out-of-viewport threshold. The top arrow was hidden
+        // even though the line started exactly at the visible page boundary.
+        //
+        // Arrange
+        const start = { x: 300, y: 0 };
+        const end = { x: 300, y: 150 };
+
+        // Act
+        const result = clipSegmentToViewport(start, end, viewport, margin);
+
+        // Assert
+        expect(result.clippedStart).toBe(false);
+        expect(result.clippedEnd).toBe(false);
+        expect(result.start).toEqual({ x: 300, y: margin });
+        expect(result.end).toEqual(end);
+    });
+
+    it('does not mark clipped when an endpoint falls within the cosmetic margin band but is still on-screen', () => {
+        // Arrange: start.y = 2 is inside [0, viewport.height] so not clipped,
+        // but it IS inside the 4px margin band so it gets nudged visually.
+        const start = { x: 300, y: 2 };
+        const end = { x: 300, y: 200 };
+
+        // Act
+        const result = clipSegmentToViewport(start, end, viewport, margin);
+
+        // Assert
+        expect(result.clippedStart).toBe(false);
+        expect(result.start).toEqual({ x: 300, y: margin });
+    });
+
     it('throws when given a diagonal (non axis-aligned) segment', () => {
         // Arrange
         const start = { x: 0, y: 0 };
