@@ -7,6 +7,10 @@ export const SHADOW_HOST_ID = 'pixly-shadow-host';
 // clicks that originated inside a real interactive panel from clicks on the
 // transparent overlay layer, which must pass through to the page.
 export const PIXLY_INTERACTIVE_ATTR = 'data-pixly-interactive';
+
+// Marks the light-DOM overlay container so a freshly-injected content script
+// can locate and remove orphans left by a previous (now-invalidated) instance.
+export const OVERLAY_CONTAINER_ATTR = 'data-pixly-overlay-container';
 export const SHADOW_HOST_Z_INDEX = 2147483646;
 export const HIGHLIGHT_Z_INDEX = 2147483640;
 export const TOOLTIP_Z_INDEX = 2147483645;

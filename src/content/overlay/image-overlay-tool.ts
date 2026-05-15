@@ -3,7 +3,7 @@
 // keyboard nudge and a lock toggle. Persists position, size and lock state
 // per overlay session so they survive tab switches and full page reloads.
 
-import { OVERLAY_LIGHT_DOM_Z_INDEX } from '@/shared/constants/ui';
+import { OVERLAY_LIGHT_DOM_Z_INDEX, OVERLAY_CONTAINER_ATTR } from '@/shared/constants/ui';
 import { ColorToken } from '@/shared/constants/design-tokens';
 import { StorageKey } from '@/shared/constants/storage';
 import { MessageType } from '@/shared/types/messages';
@@ -14,6 +14,7 @@ import {
     clampToViewport,
     computeResize,
     nudgePosition,
+    RESIZE_MIN_DIMENSION_PX,
     scalePercent,
     type Point,
     type Rect,
@@ -225,6 +226,14 @@ export class ImageOverlayTool implements Tool {
         // outside it.
         ensureShadowMount();
 
+        // Purge any overlay containers orphaned by a prior (now-invalidated)
+        // content-script instance. Without this, a hot-reload or manual extension
+        // reload leaves the old container in the DOM — the new script then mounts
+        // a second container, giving the user two overlays at once.
+        document.body
+            .querySelectorAll<HTMLDivElement>(`[${OVERLAY_CONTAINER_ATTR}]`)
+            .forEach((orphan) => orphan.remove());
+
         this.state = { ...initial };
         this.container = this.buildContainer();
         document.body.appendChild(this.container);
@@ -259,6 +268,7 @@ export class ImageOverlayTool implements Tool {
         ].join('; ');
 
         container.className = CLASS_CONTAINER;
+        container.setAttribute(OVERLAY_CONTAINER_ATTR, 'true');
 
         this.img = document.createElement('img');
         this.img.alt = 'Pixly overlay';
@@ -369,11 +379,11 @@ export class ImageOverlayTool implements Tool {
             return;
         }
 
-        // Resize handles bubble up to here but they already started their own
-        // resize state — let them take precedence.
-        if (this.resize) {
-            return;
-        }
+        // Handles call stopPropagation on mousedown, so they never bubble here.
+        // A non-null this.resize at this point means a previous resize ended
+        // without a mouseup (pointer left the browser window while held).
+        // Clear the stale state so drag can start normally.
+        this.resize = null;
 
         const target = event.target as HTMLElement;
 
@@ -487,10 +497,22 @@ export class ImageOverlayTool implements Tool {
             preserveAspectRatio: this.resize.preserveAspectRatio,
         });
         const clamped = clampToViewport(result.rect, this.viewportSize());
+
+        // When the clamp shifts the container position (e.g., the overlay was
+        // growing into the left or top viewport edge), the anchor — the corner
+        // opposite the active handle — would visually jump because the
+        // container moves while keeping the same size. To keep the anchor
+        // fixed, reduce the width/height by the same amount the clamp moved
+        // the position, so the inactive corner stays at its geometric position.
+        const dx = clamped.x - result.rect.x;
+        const dy = clamped.y - result.rect.y;
+        const anchoredWidth = Math.max(result.rect.width - dx, RESIZE_MIN_DIMENSION_PX);
+        const anchoredHeight = Math.max(result.rect.height - dy, RESIZE_MIN_DIMENSION_PX);
+
         this.state.positionX = clamped.x;
         this.state.positionY = clamped.y;
-        this.state.width = result.rect.width;
-        this.state.height = result.rect.height;
+        this.state.width = anchoredWidth;
+        this.state.height = anchoredHeight;
         this.applyStyles();
         this.renderResizeTooltip(result.snapped, result.capped, !this.resize.preserveAspectRatio);
     }
@@ -727,6 +749,18 @@ export class ImageOverlayTool implements Tool {
 
         try {
             const stored = await chrome.storage.local.get(StorageKey.OverlayState);
+
+            // Re-check after the async gap: loadImage() may have been called
+            // while the storage read was in flight, mounting an overlay and
+            // setting this.state. Calling mountOverlay() a second time would
+            // create a duplicate container at the old persisted position (often
+            // 0,0 from the initial-load persist), leaving a phantom element in
+            // the DOM that becomes visually dominant once the user scales the
+            // real overlay down.
+            if (this.state) {
+                return;
+            }
+
             const value = stored[StorageKey.OverlayState] as PersistedOverlayState | undefined;
 
             if (!value || typeof value.dataUrl !== 'string') {

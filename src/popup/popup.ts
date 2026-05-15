@@ -559,7 +559,15 @@ class PopupController {
         lockToggle: HTMLInputElement,
         scaleBadge: HTMLElement,
     ): void {
-        lockToggle.checked = payload.locked;
+        // Only assign when the value actually changes. Programmatic .checked
+        // assignment fires a 'change' event in some Chrome extension popup
+        // contexts; an unconditional assignment when the value is unchanged
+        // would trigger the lockToggle listener and round-trip an unnecessary
+        // UpdateOverlayState message back to the content script.
+        if (lockToggle.checked !== payload.locked) {
+            lockToggle.checked = payload.locked;
+        }
+
         lockToggle.disabled = !payload.loaded;
 
         if (payload.loaded) {

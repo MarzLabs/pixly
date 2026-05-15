@@ -331,6 +331,127 @@ describe('clampToViewport', () => {
     });
 });
 
+// Regression tests: anchor preservation when clampToViewport fires during resize.
+//
+// The tool adjusts width/height by the same delta that clampToViewport applied
+// to x/y so that the anchor (opposite corner of the active handle) does not
+// visually jump. These tests verify the geometry that the tool relies on.
+describe('anchor preservation when clampToViewport shifts position', () => {
+    it('top-left drag: clamped x delta correctly reduces width to keep anchor fixed', () => {
+        // Arrange — image at (0, 0), size (1000, 500). User drags top-left
+        // far beyond the left edge so computeResize returns a very negative x.
+        const startRect = makeRect(0, 0, 1000, 500);
+        const anchorBottomRight = {
+            x: startRect.x + startRect.width,  // 1000
+            y: startRect.y + startRect.height, // 500
+        };
+        const input: ResizeInput = {
+            handle: 'top-left',
+            startRect,
+            pointer: { x: -600, y: -300 },
+            pointerOffset: ZERO_OFFSET,
+            naturalSize: NATURAL_LANDSCAPE,
+            preserveAspectRatio: false,
+        };
+        const viewport = { width: 1024, height: 768 };
+
+        // Act
+        const result = computeResize(input);
+        const clamped = clampToViewport(result.rect, viewport);
+        const dx = clamped.x - result.rect.x;
+        const dy = clamped.y - result.rect.y;
+        const anchoredWidth = Math.max(result.rect.width - dx, RESIZE_MIN_DIMENSION_PX);
+        const anchoredHeight = Math.max(result.rect.height - dy, RESIZE_MIN_DIMENSION_PX);
+
+        // Assert — the anchor (bottom-right corner) stays at its geometric position
+        // despite the clamp shifting the container leftward.
+        expect(clamped.x + anchoredWidth).toBe(anchorBottomRight.x);
+        expect(clamped.y + anchoredHeight).toBe(anchorBottomRight.y);
+    });
+
+    it('bottom-left drag: clamped x delta correctly reduces width to keep anchor fixed', () => {
+        // Arrange — image at (200, 100), size (800, 400). User drags bottom-left
+        // far left so the rect's x becomes very negative.
+        const startRect = makeRect(200, 100, 800, 400);
+        const anchorTopRight = {
+            x: startRect.x + startRect.width, // 1000
+            y: startRect.y,                   // 100
+        };
+        const input: ResizeInput = {
+            handle: 'bottom-left',
+            startRect,
+            pointer: { x: -500, y: 600 },
+            pointerOffset: ZERO_OFFSET,
+            naturalSize: NATURAL_LANDSCAPE,
+            preserveAspectRatio: false,
+        };
+        const viewport = { width: 1024, height: 768 };
+
+        // Act
+        const result = computeResize(input);
+        const clamped = clampToViewport(result.rect, viewport);
+        const dx = clamped.x - result.rect.x;
+        const anchoredWidth = Math.max(result.rect.width - dx, RESIZE_MIN_DIMENSION_PX);
+
+        // Assert — the right edge (anchor x) is preserved.
+        expect(clamped.x + anchoredWidth).toBe(anchorTopRight.x);
+    });
+
+    it('top-right drag growing upward: clamped y delta reduces height to keep anchor fixed', () => {
+        // Arrange — image at (100, 100), size (600, 400). User drags top-right
+        // far upward so the rect's y becomes very negative.
+        const startRect = makeRect(100, 100, 600, 400);
+        const anchorBottomLeft = {
+            x: startRect.x,                    // 100
+            y: startRect.y + startRect.height, // 500
+        };
+        const input: ResizeInput = {
+            handle: 'top-right',
+            startRect,
+            pointer: { x: 700, y: -500 },
+            pointerOffset: ZERO_OFFSET,
+            naturalSize: NATURAL_LANDSCAPE,
+            preserveAspectRatio: false,
+        };
+        const viewport = { width: 1024, height: 768 };
+
+        // Act
+        const result = computeResize(input);
+        const clamped = clampToViewport(result.rect, viewport);
+        const dy = clamped.y - result.rect.y;
+        const anchoredHeight = Math.max(result.rect.height - dy, RESIZE_MIN_DIMENSION_PX);
+
+        // Assert — the bottom edge (anchor y) is preserved.
+        expect(clamped.y + anchoredHeight).toBe(anchorBottomLeft.y);
+    });
+
+    it('bottom-right drag: clamp does not affect x or y when anchor is at origin', () => {
+        // Arrange — image at (0, 0), bottom-right drag. The anchor (top-left)
+        // is at the origin, which is always within viewport bounds, so
+        // clampToViewport must not change x or y.
+        const startRect = makeRect(0, 0, 1000, 500);
+        const input: ResizeInput = {
+            handle: 'bottom-right',
+            startRect,
+            pointer: { x: 10000, y: 5000 },
+            pointerOffset: ZERO_OFFSET,
+            naturalSize: NATURAL_LANDSCAPE,
+            preserveAspectRatio: true,
+        };
+        const viewport = { width: 1024, height: 768 };
+
+        // Act
+        const result = computeResize(input);
+        const clamped = clampToViewport(result.rect, viewport);
+        const dx = clamped.x - result.rect.x;
+        const dy = clamped.y - result.rect.y;
+
+        // Assert — no positional shift; anchor correction is a no-op (dx=0, dy=0).
+        expect(dx).toBe(0);
+        expect(dy).toBe(0);
+    });
+});
+
 describe('nudgePosition', () => {
     const start = { x: 100, y: 200 };
 

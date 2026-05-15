@@ -24,6 +24,12 @@ export function ensureShadowMount(): ShadowMount {
         }
     }
 
+    // Remove any shadow host left by a prior (invalidated) content-script
+    // instance so that a fresh injection never ends up with duplicate hosts.
+    document.body
+        .querySelectorAll<HTMLDivElement>(`#${SHADOW_HOST_ID}`)
+        .forEach((orphan) => orphan.remove());
+
     const host = document.createElement('div');
     host.id = SHADOW_HOST_ID;
     host.setAttribute('data-pixly', 'true');
