@@ -86,9 +86,9 @@
 .pixly-highlight {
     position: fixed;
     box-sizing: border-box;
-    outline: 1.5px solid var(--pixly-accent);
+    outline: 1.5px solid var(--pixly-distance-line);
     outline-offset: 0;
-    background: var(--pixly-accent-subtle);
+    background: color-mix(in srgb, var(--pixly-distance-line) 10%, transparent);
     pointer-events: none;
     transition: none;
 }
@@ -1158,8 +1158,8 @@
 .pixly-multi-highlight {
     position: fixed;
     box-sizing: border-box;
-    outline: 1.5px solid var(--pixly-accent);
-    background: var(--pixly-accent-subtle);
+    outline: 1.5px solid var(--pixly-distance-line);
+    background: color-mix(in srgb, var(--pixly-distance-line) 10%, transparent);
     pointer-events: none;
     z-index: var(--pixly-z-decorative);
 }
@@ -1167,7 +1167,7 @@
 .pixly-multi-bbox {
     position: fixed;
     box-sizing: border-box;
-    outline: 1px dashed var(--pixly-accent);
+    outline: 1px dashed var(--pixly-distance-line);
     background: transparent;
     pointer-events: none;
     z-index: var(--pixly-z-decorative);
