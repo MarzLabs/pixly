@@ -3,7 +3,8 @@
 // keyboard nudge and a lock toggle. Persists position, size and lock state
 // per overlay session so they survive tab switches and full page reloads.
 
-import { OVERLAY_Z_INDEX } from '@/shared/constants/ui';
+import { OVERLAY_LIGHT_DOM_Z_INDEX } from '@/shared/constants/ui';
+import { ColorToken } from '@/shared/constants/design-tokens';
 import { StorageKey } from '@/shared/constants/storage';
 import { MessageType } from '@/shared/types/messages';
 import { sendMessageToRuntime } from '@/shared/messaging';
@@ -43,8 +44,6 @@ const EDITABLE_TAGS = new Set(['INPUT', 'TEXTAREA', 'SELECT']);
 const CLASS_CONTAINER = 'pixly-image-overlay';
 const CLASS_HANDLE = 'pixly-overlay-handle';
 const CLASS_TOOLTIP = 'pixly-overlay-tooltip';
-const CLASS_SELECTED = 'is-selected';
-const CLASS_LOCKED = 'is-locked';
 const CLASS_LOCK_HINT = 'pixly-overlay-lock-hint';
 
 const HANDLES: readonly ResizeHandle[] = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
@@ -220,12 +219,15 @@ export class ImageOverlayTool implements Tool {
     }
 
     private mountOverlay(initial: OverlayState): void {
-        const { layer } = ensureShadowMount();
-        layer.classList.add('interactive');
+        // The container lives in the light DOM so that mix-blend-mode blends
+        // with the real page content. A Shadow DOM host with z-index creates
+        // its own stacking context, which would prevent blending with anything
+        // outside it.
+        ensureShadowMount();
 
         this.state = { ...initial };
         this.container = this.buildContainer();
-        layer.appendChild(this.container);
+        document.body.appendChild(this.container);
 
         this.applyStyles();
         this.updateHandlesVisibility();
@@ -238,20 +240,43 @@ export class ImageOverlayTool implements Tool {
 
     private buildContainer(): HTMLDivElement {
         const container = document.createElement('div');
+
+        // Defensive baseline: reset all inherited page styles so aggressive
+        // global rules (e.g. `* { box-sizing: border-box; margin: 0 }`) cannot
+        // corrupt the overlay layout. Individual properties are set explicitly
+        // after the reset so nothing relies on browser defaults.
+        container.style.cssText = [
+            'all: initial',
+            'position: fixed',
+            'top: 0',
+            'left: 0',
+            `z-index: ${String(OVERLAY_LIGHT_DOM_Z_INDEX)}`,
+            'pointer-events: auto',
+            'cursor: move',
+            'user-select: none',
+            'box-sizing: border-box',
+            'outline: 0 solid transparent',
+        ].join('; ');
+
         container.className = CLASS_CONTAINER;
-        container.style.zIndex = String(OVERLAY_Z_INDEX);
-        container.style.left = '0';
-        container.style.top = '0';
 
         this.img = document.createElement('img');
         this.img.alt = 'Pixly overlay';
+
+        // Inline styles on the img prevent page CSS from overriding display or
+        // dimensions that the tool manages exclusively via `applyStyles`.
+        this.img.style.cssText = [
+            'display: block',
+            'width: 100%',
+            'height: 100%',
+            'pointer-events: none',
+            'user-select: none',
+        ].join('; ');
+
         container.appendChild(this.img);
 
         for (const handle of HANDLES) {
-            const node = document.createElement('div');
-            node.className = `${CLASS_HANDLE} ${CLASS_HANDLE}--${handle}`;
-            node.dataset.handle = handle;
-            node.addEventListener('mousedown', (event) => this.onHandleMouseDown(event, handle));
+            const node = this.buildHandle(handle);
             container.appendChild(node);
         }
 
@@ -260,20 +285,66 @@ export class ImageOverlayTool implements Tool {
         return container;
     }
 
+    private buildHandle(handle: ResizeHandle): HTMLDivElement {
+        const HANDLE_SIZE_PX = 12;
+        const HANDLE_OFFSET_PX = -6;
+
+        const node = document.createElement('div');
+        node.className = `${CLASS_HANDLE} ${CLASS_HANDLE}--${handle}`;
+        node.dataset.handle = handle;
+
+        const cursorMap: Record<ResizeHandle, string> = {
+            'top-left': 'nwse-resize',
+            'top-right': 'nesw-resize',
+            'bottom-left': 'nesw-resize',
+            'bottom-right': 'nwse-resize',
+        };
+
+        const edgeStyles: Record<ResizeHandle, string> = {
+            'top-left': `top: ${String(HANDLE_OFFSET_PX)}px; left: ${String(HANDLE_OFFSET_PX)}px`,
+            'top-right': `top: ${String(HANDLE_OFFSET_PX)}px; right: ${String(HANDLE_OFFSET_PX)}px`,
+            'bottom-left': `bottom: ${String(HANDLE_OFFSET_PX)}px; left: ${String(HANDLE_OFFSET_PX)}px`,
+            'bottom-right': `bottom: ${String(HANDLE_OFFSET_PX)}px; right: ${String(HANDLE_OFFSET_PX)}px`,
+        };
+
+        node.style.cssText = [
+            'all: initial',
+            'position: absolute',
+            `width: ${String(HANDLE_SIZE_PX)}px`,
+            `height: ${String(HANDLE_SIZE_PX)}px`,
+            `background: ${ColorToken.Selected}`,
+            'border: 1px solid white',
+            'border-radius: 2px',
+            'box-shadow: 0 1px 2px rgba(0,0,0,0.25)',
+            'z-index: 1',
+            'box-sizing: border-box',
+            `cursor: ${cursorMap[handle]}`,
+            edgeStyles[handle],
+        ].join('; ');
+
+        node.addEventListener('mousedown', (event) => this.onHandleMouseDown(event, handle));
+
+        return node;
+    }
+
     private applyStyles(): void {
         if (!this.state || !this.container || !this.img) {
             return;
         }
 
         const { state, container, img } = this;
+
         container.style.width = `${state.width}px`;
         container.style.height = `${state.height}px`;
         container.style.opacity = String(state.opacity);
         container.style.mixBlendMode = state.blendMode;
         container.style.transform = `translate(${state.positionX}px, ${state.positionY}px)`;
         container.style.display = state.visible ? 'block' : 'none';
-        container.classList.toggle(CLASS_LOCKED, state.locked);
-        container.classList.toggle(CLASS_SELECTED, this.selected && !state.locked);
+        container.style.cursor = state.locked ? 'not-allowed' : 'move';
+
+        const isSelected = this.selected && !state.locked;
+        container.style.outline = isSelected ? `2px solid ${ColorToken.Selected}` : '0 solid transparent';
+        container.style.outlineOffset = isSelected ? '2px' : '0';
 
         if (img.src !== state.dataUrl) {
             img.src = state.dataUrl;
@@ -289,7 +360,7 @@ export class ImageOverlayTool implements Tool {
         const visible = !this.state.locked && this.state.visible;
 
         handles.forEach((node) => {
-            node.style.display = visible ? '' : 'none';
+            node.style.display = visible ? 'block' : 'none';
         });
     }
 
@@ -336,15 +407,26 @@ export class ImageOverlayTool implements Tool {
         event.preventDefault();
         event.stopPropagation();
 
+        const startRect: Rect = {
+            x: this.state.positionX,
+            y: this.state.positionY,
+            width: this.state.width,
+            height: this.state.height,
+        };
+
+        // Capture the offset from the pointer to the container corner that the
+        // active handle sits on. This keeps that corner pinned exactly under the
+        // cursor throughout the drag — without it, clicking anywhere other than
+        // the exact corner produces an immediate size jump equal to the distance
+        // from the click to the corner (the handle is offset HANDLE_OFFSET_PX px
+        // outside the container, so the offset is always non-zero in practice).
+        const cornerX = handle.endsWith('right') ? startRect.x + startRect.width : startRect.x;
+        const cornerY = handle.startsWith('bottom') ? startRect.y + startRect.height : startRect.y;
+
         this.resize = {
             handle,
-            startRect: {
-                x: this.state.positionX,
-                y: this.state.positionY,
-                width: this.state.width,
-                height: this.state.height,
-            },
-            pointerOffset: { x: 0, y: 0 },
+            startRect,
+            pointerOffset: { x: event.clientX - cornerX, y: event.clientY - cornerY },
             preserveAspectRatio: !event.shiftKey,
         };
         this.setSelected(true);

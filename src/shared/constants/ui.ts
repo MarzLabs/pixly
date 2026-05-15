@@ -13,6 +13,13 @@ export const TOOLTIP_Z_INDEX = 2147483645;
 export const OVERLAY_Z_INDEX = 2147483600;
 export const NOTIFICATION_Z_INDEX = 2147483647;
 
+// The image-overlay container lives in the light DOM so that mix-blend-mode
+// blends with the real page content (Shadow DOM creates a new stacking context
+// that prevents blending with anything outside it). This z-index sits one step
+// below the shadow host so the inspector panel and all other Pixly UI always
+// render on top of the overlay image.
+export const OVERLAY_LIGHT_DOM_Z_INDEX = SHADOW_HOST_Z_INDEX - 1;
+
 export const TOOLTIP_OFFSET_PX = 8;
 export const TOOLTIP_MAX_WIDTH_PX = 280;
 export const VIEWPORT_MARGIN_PX = 8;

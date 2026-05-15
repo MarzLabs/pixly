@@ -101,6 +101,37 @@ describe('computeResize (aspect ratio preserved)', () => {
         expect(result.rect.y).toBe(100);
     });
 
+    it('produces no initial size jump when pointerOffset captures the click inside the handle', () => {
+        // Arrange — overlay at (300, 200) with size (400, 300). The bottom-right
+        // handle is offset 6 px outside the container, so the user clicked 6 px
+        // INSIDE the container right edge (at clientX=694 instead of 700).
+        // pointerOffset = { x: 694 - 700, y: 494 - 500 } = { x: -6, y: -6 }.
+        const CLICK_INSIDE_OFFSET_PX = 6;
+        const startRect = makeRect(300, 200, 400, 300);
+        const handleCornerX = startRect.x + startRect.width;
+        const handleCornerY = startRect.y + startRect.height;
+        const clickX = handleCornerX - CLICK_INSIDE_OFFSET_PX;
+        const clickY = handleCornerY - CLICK_INSIDE_OFFSET_PX;
+
+        const input: ResizeInput = {
+            handle: 'bottom-right',
+            startRect,
+            pointer: { x: clickX, y: clickY },
+            pointerOffset: { x: clickX - handleCornerX, y: clickY - handleCornerY },
+            naturalSize: { width: 400, height: 300 },
+            preserveAspectRatio: true,
+        };
+
+        // Act
+        const result = computeResize(input);
+
+        // Assert — width and height remain at their initial values; no jump.
+        expect(result.rect.width).toBe(startRect.width);
+        expect(result.rect.height).toBe(startRect.height);
+        expect(result.rect.x).toBe(startRect.x);
+        expect(result.rect.y).toBe(startRect.y);
+    });
+
     it('preserves the aspect ratio within sub-pixel tolerance', () => {
         // Arrange
         const input: ResizeInput = {

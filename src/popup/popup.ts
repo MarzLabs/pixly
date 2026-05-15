@@ -368,10 +368,32 @@ class PopupController {
             return;
         }
 
+        // Guard that prevents event handlers from sending overlay state back to
+        // the content script while controls are being initialized. Setting input
+        // values programmatically can fire spurious events in certain browser
+        // contexts; this flag ensures no outbound message is dispatched until the
+        // user deliberately interacts with a control.
+        let overlayControlsReady = false;
+
+        const initialPercent = Math.round(this.settings.overlay.opacity * OPACITY_PERCENT_DIVISOR);
+        opacityInput.value = String(initialPercent);
+        opacityValue.textContent = `${initialPercent}%`;
+
+        if (BLEND_MODES.includes(this.settings.overlay.blendMode)) {
+            blendSelect.value = this.settings.overlay.blendMode;
+        }
+
         // Sync the lock toggle and scale badge with the actual content-script
         // state in case the user toggled the lock with Alt+L or resized the
-        // overlay before opening the popup.
-        void this.refreshOverlayStateFromContent(lockToggle, scaleBadge);
+        // overlay before opening the popup. Runs after the local input values
+        // are set so that the `overlayControlsReady` flag can be raised only
+        // once the async response arrives (or immediately if the tab is not
+        // reachable, so the user can still interact with controls).
+        void this.refreshOverlayStateFromContent(lockToggle, scaleBadge).then(() => {
+            overlayControlsReady = true;
+        }).catch(() => {
+            overlayControlsReady = true;
+        });
 
         // Listen for state changes broadcast by the content script (Alt+L,
         // mid-drag resize, keyboard nudge) so the popup stays in sync while
@@ -383,16 +405,12 @@ class PopupController {
         });
 
         lockToggle.addEventListener('change', async () => {
+            if (!overlayControlsReady) {
+                return;
+            }
+
             await this.sendOverlayState({ locked: lockToggle.checked });
         });
-
-        const initialPercent = Math.round(this.settings.overlay.opacity * OPACITY_PERCENT_DIVISOR);
-        opacityInput.value = String(initialPercent);
-        opacityValue.textContent = `${initialPercent}%`;
-
-        if (BLEND_MODES.includes(this.settings.overlay.blendMode)) {
-            blendSelect.value = this.settings.overlay.blendMode;
-        }
 
         fileInput.addEventListener('change', async () => {
             const file = fileInput.files?.[0];
