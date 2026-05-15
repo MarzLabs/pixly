@@ -4,7 +4,7 @@ Chrome extension (Manifest V3) for visual layout inspection and comparison again
 
 ## Features
 
-### Stage 1 — Inspection & measurement
+### Inspection & measurement
 
 - Element inspector with dimensions and distances to the parent.
 - Paint backgrounds with `Shift+Click` and outlines with `Ctrl+Shift+B` using the selected palette color.
@@ -21,7 +21,7 @@ Chrome extension (Manifest V3) for visual layout inspection and comparison again
 - Configurable keyboard shortcuts with conflict detection.
 - Automatic cleanup when the page reloads.
 
-### Stage 2 — Compare with Figma
+### Compare with Figma
 
 - Load an overlay image (PNG, JPG, WEBP, SVG; up to 20 MB).
 - Adjustable opacity (0–100%).
@@ -99,8 +99,8 @@ npm run typecheck
 src/
 ├── background/           # Service worker (Manifest V3)
 ├── content/              # Content script and injected tools
-│   ├── overlay/          # Image overlay and snapshot (Stage 2)
-│   ├── tools/            # Individual tools (Stage 1)
+│   ├── overlay/          # Image overlay and snapshot
+│   ├── tools/            # Individual tools
 │   └── styles/           # CSS isolated inside the Shadow DOM
 ├── popup/                # Popup UI
 ├── shared/               # Shared constants, types, and utilities
