@@ -3,6 +3,7 @@
 
 import {
     BLEND_MODES,
+    DISTANCE_LINE_DEFAULTS,
     INSPECTOR_PANEL_DEFAULTS,
     MULTI_SELECTION_DEFAULTS,
     PALETTE_MAX_COLORS,
@@ -14,7 +15,7 @@ import {
 } from '@/shared/constants';
 import { MessageType, type PixlyMessage } from '@/shared/types/messages';
 import type { UserSettings } from '@/shared/types/settings';
-import { sendMessageToTab } from '@/shared/messaging';
+import { sendMessageToRuntime, sendMessageToTab } from '@/shared/messaging';
 import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '@/shared/utils/storage';
 import { isValidHexColor, expandShortHex } from '@/shared/utils/colors';
 import { validateImageFile } from '@/shared/utils/image-validation';
@@ -46,6 +47,7 @@ class PopupController {
         this.bindMeasurementUnit();
         this.bindResetSettings();
         this.bindPreferences();
+        this.bindDistanceLineColor();
         this.renderWelcomeBanner();
     }
 
@@ -457,10 +459,10 @@ class PopupController {
                 return;
             }
 
-            const response = await chrome.runtime.sendMessage({
+            const response = await sendMessageToRuntime(({
                 type: MessageType.TakeSnapshot,
                 payload: undefined,
-            }) as PixlyMessage | undefined;
+            })) as PixlyMessage | undefined;
 
             if (response?.type !== MessageType.TakeSnapshotResponse || !response.payload.dataUrl) {
                 this.flashStatus(status, response?.type === MessageType.TakeSnapshotResponse ? response.payload.error ?? 'Unable to capture the screen.' : 'Unable to capture the screen.', true);
@@ -522,7 +524,11 @@ class PopupController {
         if (!button) return;
 
         button.addEventListener('click', async () => {
-            this.settings = { ...DEFAULT_SETTINGS, palette: [...DEFAULT_SETTINGS.palette] };
+            this.settings = {
+                ...DEFAULT_SETTINGS,
+                palette: [...DEFAULT_SETTINGS.palette],
+                distanceLine: { ...DEFAULT_SETTINGS.distanceLine },
+            };
             await this.persist();
             this.renderPalette();
             this.renderPaletteEditor();
@@ -532,6 +538,15 @@ class PopupController {
 
             if (select) {
                 select.value = this.settings.measurementUnit;
+            }
+
+            const picker = document.getElementById('distance-line-color') as HTMLInputElement | null;
+            const hexInput = document.getElementById('distance-line-color-hex') as HTMLInputElement | null;
+
+            if (picker && hexInput) {
+                picker.value = this.settings.distanceLine.color;
+                hexInput.value = this.settings.distanceLine.color.toUpperCase();
+                hexInput.classList.remove('invalid');
             }
         });
     }
@@ -556,20 +571,17 @@ class PopupController {
 
     private async persist(): Promise<void> {
         await saveSettings(this.settings);
+
         const tabId = await this.getActiveTabId();
 
         if (!tabId) {
             return;
         }
 
-        try {
-            await sendMessageToTab(tabId, {
-                type: MessageType.UpdateSettings,
-                payload: { settings: this.settings },
-            });
-        } catch {
-            // Content script may not be active on the current page.
-        }
+        await sendMessageToTab(tabId, {
+            type: MessageType.UpdateSettings,
+            payload: { settings: this.settings },
+        });
     }
 
     private async getActiveTabId(): Promise<number | null> {
@@ -661,6 +673,55 @@ class PopupController {
         // Reference the default constant to keep the import meaningful even if
         // the user resets through the global reset button.
         void INSPECTOR_PANEL_DEFAULTS;
+    }
+
+    private bindDistanceLineColor(): void {
+        const picker = document.getElementById('distance-line-color') as HTMLInputElement | null;
+        const hexInput = document.getElementById('distance-line-color-hex') as HTMLInputElement | null;
+        const resetButton = document.getElementById('distance-line-color-reset') as HTMLButtonElement | null;
+
+        if (!picker || !hexInput || !resetButton) {
+            return;
+        }
+
+        const syncInputs = (color: string): void => {
+            picker.value = color;
+            hexInput.value = color.toUpperCase();
+            hexInput.classList.remove('invalid');
+        };
+
+        const applyColor = async (color: string): Promise<void> => {
+            this.settings.distanceLine.color = color;
+            await this.persist();
+        };
+
+        syncInputs(this.settings.distanceLine.color);
+
+        picker.addEventListener('input', async () => {
+            const color = picker.value;
+            syncInputs(color);
+            await applyColor(color);
+        });
+
+        hexInput.addEventListener('change', async () => {
+            const raw = hexInput.value.trim();
+
+            if (!isValidHexColor(raw)) {
+                hexInput.classList.add('invalid');
+
+                return;
+            }
+
+            const expanded = expandShortHex(raw).toUpperCase();
+            syncInputs(expanded);
+            await applyColor(expanded);
+        });
+
+        resetButton.addEventListener('click', async () => {
+            const defaultColor = DISTANCE_LINE_DEFAULTS.color;
+            syncInputs(defaultColor);
+            await applyColor(defaultColor);
+        });
     }
 
     private renderWelcomeBanner(): void {

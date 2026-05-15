@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { migrateSettings } from './storage';
-import { SETTINGS_SCHEMA_VERSION } from '../constants/ui';
+import { DISTANCE_LINE_DEFAULTS, SETTINGS_SCHEMA_VERSION } from '../constants/ui';
 import type { UserSettings } from '../types/settings';
 
 describe('migrateSettings', () => {
@@ -104,6 +104,33 @@ describe('migrateSettings', () => {
         expect(mutated).toBe(false);
     });
 
+    it('fills the distance line color with the default when missing', () => {
+        // Arrange — older installs do not have distanceLine persisted yet.
+        const stored: Partial<UserSettings> = {
+            version: SETTINGS_SCHEMA_VERSION,
+        };
+
+        // Act
+        const { settings } = migrateSettings(stored);
+
+        // Assert
+        expect(settings.distanceLine.color).toBe(DISTANCE_LINE_DEFAULTS.color);
+    });
+
+    it('preserves a stored distance line color during migration', () => {
+        // Arrange
+        const stored: Partial<UserSettings> = {
+            version: SETTINGS_SCHEMA_VERSION,
+            distanceLine: { color: '#123456' },
+        };
+
+        // Act
+        const { settings } = migrateSettings(stored);
+
+        // Assert
+        expect(settings.distanceLine.color).toBe('#123456');
+    });
+
     it('returns a fully populated UserSettings when v1 data has no v2 fields', () => {
         // Arrange — simulate settings from v1 (no version field, no v2 fields)
         const v1Stored = {
@@ -134,6 +161,8 @@ describe('migrateSettings', () => {
         expect(settings.inspectorPanel.hideFloatingTooltip).toBe(false);
         expect(settings.multiSelection).toBeDefined();
         expect(settings.multiSelection.maxItems).toBeGreaterThan(0);
+        expect(settings.distanceLine).toBeDefined();
+        expect(settings.distanceLine.color).toBe(DISTANCE_LINE_DEFAULTS.color);
         expect(settings.showWelcomeMessage).toBe(true);
         expect(settings.migrationLog.length).toBeGreaterThan(0);
         expect(settings.version).toBe(SETTINGS_SCHEMA_VERSION);

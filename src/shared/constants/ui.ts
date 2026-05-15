@@ -100,6 +100,12 @@ export const MULTI_SELECTION_DEFAULTS = {
     maxAllowedItems: 20,
 } as const;
 
+// Distance-line color defaults. The default is Tailwind orange-500 because it
+// reads well against both the inspector accent indigo and most page palettes.
+export const DISTANCE_LINE_DEFAULTS = {
+    color: '#F97316',
+} as const;
+
 // Nudge step sizes for selected guides (v2).
 export const NUDGE_STEP_PX = 1;
 export const NUDGE_LARGE_STEP_PX = 10;

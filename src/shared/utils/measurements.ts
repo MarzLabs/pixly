@@ -98,3 +98,70 @@ export function pxToUnit(valuePx: number, unit: 'px' | 'rem' | 'em', basePx = PX
 export function clamp(value: number, min: number, max: number): number {
     return Math.max(min, Math.min(max, value));
 }
+
+export interface Viewport {
+    width: number;
+    height: number;
+}
+
+export interface ClippedSegment {
+    start: Point;
+    end: Point;
+    clippedStart: boolean;
+    clippedEnd: boolean;
+    visibleLength: number;
+}
+
+// Clamp an axis-aligned segment (horizontal OR vertical) to the visible
+// viewport, shrinking it by `margin` on every side so the geometry never
+// touches the very edge of the screen. Returns the clamped endpoints, two
+// flags indicating which ends were clipped, and the resulting on-screen
+// length. When the original segment is entirely outside the viewport,
+// `visibleLength` is 0 and both clipped flags are true.
+//
+// The function only supports axis-aligned segments because that's the only
+// shape Pixly's adjacent-distance lines ever produce. Diagonal clipping
+// would require a different algorithm (Cohen–Sutherland or similar).
+export function clipSegmentToViewport(
+    start: Point,
+    end: Point,
+    viewport: Viewport,
+    margin: number,
+): ClippedSegment {
+    const minX = margin;
+    const maxX = viewport.width - margin;
+    const minY = margin;
+    const maxY = viewport.height - margin;
+
+    const isHorizontal = start.y === end.y;
+    const isVertical = start.x === end.x;
+
+    if (!isHorizontal && !isVertical) {
+        throw new Error('clipSegmentToViewport only supports axis-aligned segments');
+    }
+
+    const originalStartX = start.x;
+    const originalStartY = start.y;
+    const originalEndX = end.x;
+    const originalEndY = end.y;
+
+    const clampedStartX = clamp(originalStartX, minX, maxX);
+    const clampedStartY = clamp(originalStartY, minY, maxY);
+    const clampedEndX = clamp(originalEndX, minX, maxX);
+    const clampedEndY = clamp(originalEndY, minY, maxY);
+
+    const clippedStart = clampedStartX !== originalStartX || clampedStartY !== originalStartY;
+    const clippedEnd = clampedEndX !== originalEndX || clampedEndY !== originalEndY;
+
+    const visibleLength = isHorizontal
+        ? Math.abs(clampedEndX - clampedStartX)
+        : Math.abs(clampedEndY - clampedStartY);
+
+    return {
+        start: { x: clampedStartX, y: clampedStartY },
+        end: { x: clampedEndX, y: clampedEndY },
+        clippedStart,
+        clippedEnd,
+        visibleLength,
+    };
+}

@@ -41,6 +41,12 @@ export interface MultiSelectionSettings {
     maxItems: number;
 }
 
+export interface DistanceLineSettings {
+    // Color applied to the dashed distance lines rendered by the inspector and
+    // distance-meter tools, as well as the live distance label.
+    color: string;
+}
+
 export interface MigrationLogEntry {
     timestamp: number;
     message: string;
@@ -58,6 +64,7 @@ export interface UserSettings {
     snap: SnapSettings;
     inspectorPanel: InspectorPanelSettings;
     multiSelection: MultiSelectionSettings;
+    distanceLine: DistanceLineSettings;
     showWelcomeMessage: boolean;
     migrationLog: MigrationLogEntry[];
 }

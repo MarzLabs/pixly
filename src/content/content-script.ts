@@ -18,6 +18,7 @@ import type { Tool, ToolContext } from './tools/tool';
 import { clearAllAppliedStyles } from './tools/applied-styles';
 
 const ESCAPE_KEY = 'Escape';
+const DISTANCE_LINE_CSS_VAR = '--pixly-distance-line';
 
 class PixlyController {
     private settings: UserSettings | null = null;
@@ -29,6 +30,7 @@ class PixlyController {
 
     async init(): Promise<void> {
         this.settings = await loadSettings();
+        this.applyDistanceLineColor(this.settings.distanceLine.color);
         this.registerListeners();
         this.bindKeyboardShortcuts();
     }
@@ -53,6 +55,7 @@ class PixlyController {
                     break;
                 case MessageType.UpdateSettings:
                     this.settings = message.payload.settings;
+                    this.applyDistanceLineColor(this.settings.distanceLine.color);
                     this.notifySettingsChange();
                     break;
                 case MessageType.ClearAppliedStyles:
@@ -160,6 +163,14 @@ class PixlyController {
         for (const listener of this.settingsListeners) {
             listener(this.settings);
         }
+    }
+
+    // Pushes the user-chosen color into the Shadow DOM as a CSS custom property
+    // so every dashed distance line (inspector + distance meter) and the live
+    // distance label re-paint instantly without needing to touch each tool.
+    private applyDistanceLineColor(color: string): void {
+        const { host } = ensureShadowMount();
+        host.style.setProperty(DISTANCE_LINE_CSS_VAR, color);
     }
 
     private bindKeyboardShortcuts(): void {

@@ -21,6 +21,11 @@
     --pixly-gray-950: #09090B;
     --pixly-accent: #5B5BF7;
     --pixly-accent-hover: #4F4FE0;
+    /* Color applied to the dashed distance lines (inspector + distance meter)
+       and to the live distance label. The default mirrors DISTANCE_LINE_DEFAULTS
+       in src/shared/constants/ui.ts and is overridden at runtime via the
+       content script when the user picks a custom color in the popup. */
+    --pixly-distance-line: #F97316;
     --pixly-accent-subtle: rgba(91, 91, 247, 0.10);
     --pixly-accent-border: rgba(91, 91, 247, 0.40);
     --pixly-pinned: #F59E0B;
@@ -135,7 +140,7 @@
 }
 
 .pixly-distance-label.live {
-    background: var(--pixly-accent);
+    background: var(--pixly-distance-line);
     border-color: transparent;
 }
 
@@ -149,14 +154,54 @@
 
 .pixly-distance-line.dashed {
     background: transparent;
-    border-top: 1px dashed var(--pixly-accent);
+    border-top: 1px dashed var(--pixly-distance-line);
     height: 0 !important;
+    /* Subtle white halo so the dashed line stays legible over both light and
+       dark page backgrounds without overpowering the page content. */
+    filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.55));
 }
 
 .pixly-distance-line.vertical-dashed {
     background: transparent;
-    border-left: 1px dashed var(--pixly-accent);
+    border-left: 1px dashed var(--pixly-distance-line);
     width: 0 !important;
+    filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.55));
+}
+
+/* Fade-out modifiers applied when the adjacent-distance segment was clamped
+   to the viewport. The mask-image makes the clipped end appear to dissolve
+   into the screen edge instead of stopping with a sharp visual cut. The
+   gradient size matches MIN_LINE_LENGTH_FOR_LABEL_PX (16px) so that the
+   fade is perceptible without consuming a large share of the visible
+   segment. */
+.pixly-distance-line.dashed.clipped-start {
+    -webkit-mask-image: linear-gradient(to right, transparent 0, black 16px);
+    mask-image: linear-gradient(to right, transparent 0, black 16px);
+}
+
+.pixly-distance-line.dashed.clipped-end {
+    -webkit-mask-image: linear-gradient(to left, transparent 0, black 16px);
+    mask-image: linear-gradient(to left, transparent 0, black 16px);
+}
+
+.pixly-distance-line.dashed.clipped-start.clipped-end {
+    -webkit-mask-image: linear-gradient(to right, transparent 0, black 16px, black calc(100% - 16px), transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, black 16px, black calc(100% - 16px), transparent 100%);
+}
+
+.pixly-distance-line.vertical-dashed.clipped-start {
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 16px);
+    mask-image: linear-gradient(to bottom, transparent 0, black 16px);
+}
+
+.pixly-distance-line.vertical-dashed.clipped-end {
+    -webkit-mask-image: linear-gradient(to top, transparent 0, black 16px);
+    mask-image: linear-gradient(to top, transparent 0, black 16px);
+}
+
+.pixly-distance-line.vertical-dashed.clipped-start.clipped-end {
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, black 16px, black calc(100% - 16px), transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0, black 16px, black calc(100% - 16px), transparent 100%);
 }
 
 .pixly-tooltip {

@@ -9,9 +9,8 @@
 // the unified tooltip so other hover tools (typography, color picker) can
 // merge their data into the same panel instead of stacking their own.
 
-import { TOOLTIP_OFFSET_PX } from '@/shared/constants/ui';
 import { elementUnderPoint, isElementVisible, isInsidePixlyUi, isInsidePixlyInteractivePanel } from '@/shared/utils/dom';
-import { pxToUnit } from '@/shared/utils/measurements';
+import { clipSegmentToViewport, pxToUnit, type Point } from '@/shared/utils/measurements';
 import { getSelectionManager } from '../selection/selection-manager';
 import { ensureShadowMount } from '../shadow-host';
 import {
@@ -24,6 +23,14 @@ import type { Tool, ToolContext } from './tool';
 const MOUSE_THROTTLE_MS = 16;
 const NO_SIBLING_DISTANCE = 0;
 const PARENT_CHILD_WARNING_MS = 2500;
+// Below this length the label would visually collide with either the element
+// or the parent edge, so we draw the dashed line but hide the numeric label.
+const MIN_LINE_LENGTH_FOR_LABEL_PX = 16;
+// Inset from the viewport edges used when clamping adjacent-distance segments.
+// Keeps the dashed line from touching the very edge of the screen, which would
+// look glued to the chrome and make the fade-out mask less perceptible.
+const VIEWPORT_CLAMP_MARGIN_PX = 4;
+const HALF_DIVISOR = 2;
 const LIMIT_REACHED_PREFIX = 'Multi-selection limit reached. Remove an element before adding another.';
 const DIMENSIONS_SECTION_ID = 'dimensions';
 const DIMENSIONS_SECTION_TITLE = 'Dimensions';
@@ -51,6 +58,7 @@ export class InspectorTool implements Tool {
     private highlight: HTMLDivElement | null = null;
     private dimensionsSectionHandle: TooltipSectionHandle | null = null;
     private distanceLabels: HTMLDivElement[] = [];
+    private distanceLines: HTMLDivElement[] = [];
     private currentElement: Element | null = null;
     private lastUpdate = 0;
     private unsubscribeSettings: (() => void) | null = null;
@@ -257,43 +265,130 @@ export class InspectorTool implements Tool {
             return;
         }
 
-        const { layer } = ensureShadowMount();
-        const unit = this.context?.settings.measurementUnit ?? 'px';
-        const sibling = this.currentElement.parentElement;
+        const parent = this.currentElement.parentElement;
 
-        if (!sibling) {
+        if (!parent) {
             return;
         }
 
-        const parentRect = sibling.getBoundingClientRect();
-        const distances = {
-            top: Math.max(NO_SIBLING_DISTANCE, rect.top - parentRect.top),
-            bottom: Math.max(NO_SIBLING_DISTANCE, parentRect.bottom - rect.bottom),
-            left: Math.max(NO_SIBLING_DISTANCE, rect.left - parentRect.left),
-            right: Math.max(NO_SIBLING_DISTANCE, parentRect.right - rect.right),
-        };
+        const { layer } = ensureShadowMount();
+        const unit = this.context?.settings.measurementUnit ?? 'px';
+        const parentRect = parent.getBoundingClientRect();
+        const elementCenterX = rect.left + rect.width / HALF_DIVISOR;
+        const elementCenterY = rect.top + rect.height / HALF_DIVISOR;
+        const viewport = { width: window.innerWidth, height: window.innerHeight };
 
-        const labels: Array<{ value: number; x: number; y: number }> = [
-            { value: distances.top, x: rect.left + rect.width / 2, y: rect.top - TOOLTIP_OFFSET_PX },
-            { value: distances.bottom, x: rect.left + rect.width / 2, y: rect.bottom + TOOLTIP_OFFSET_PX },
-            { value: distances.left, x: rect.left - TOOLTIP_OFFSET_PX, y: rect.top + rect.height / 2 },
-            { value: distances.right, x: rect.right + TOOLTIP_OFFSET_PX, y: rect.top + rect.height / 2 },
+        // Each side describes one dashed measurement line from the element's
+        // edge to the parent's matching edge. `length` is the raw on-screen
+        // distance (used for the label text); the actual visible geometry is
+        // computed by clipping the segment to the viewport, so labels track
+        // the visible midpoint even when the parent extends off-screen.
+        const sides = [
+            {
+                length: Math.max(NO_SIBLING_DISTANCE, rect.top - parentRect.top),
+                orientation: 'vertical' as const,
+                start: { x: elementCenterX, y: parentRect.top },
+                end: { x: elementCenterX, y: rect.top },
+            },
+            {
+                length: Math.max(NO_SIBLING_DISTANCE, parentRect.bottom - rect.bottom),
+                orientation: 'vertical' as const,
+                start: { x: elementCenterX, y: rect.bottom },
+                end: { x: elementCenterX, y: parentRect.bottom },
+            },
+            {
+                length: Math.max(NO_SIBLING_DISTANCE, rect.left - parentRect.left),
+                orientation: 'horizontal' as const,
+                start: { x: parentRect.left, y: elementCenterY },
+                end: { x: rect.left, y: elementCenterY },
+            },
+            {
+                length: Math.max(NO_SIBLING_DISTANCE, parentRect.right - rect.right),
+                orientation: 'horizontal' as const,
+                start: { x: rect.right, y: elementCenterY },
+                end: { x: parentRect.right, y: elementCenterY },
+            },
         ];
 
-        for (const { value, x, y } of labels) {
-            if (value <= NO_SIBLING_DISTANCE) {
+        for (const side of sides) {
+            if (side.length <= NO_SIBLING_DISTANCE) {
                 continue;
             }
 
+            const clipped = clipSegmentToViewport(
+                side.start,
+                side.end,
+                viewport,
+                VIEWPORT_CLAMP_MARGIN_PX,
+            );
+
+            if (clipped.visibleLength <= NO_SIBLING_DISTANCE) {
+                continue;
+            }
+
+            const line = this.createDistanceLine(
+                side.orientation,
+                clipped.start,
+                clipped.end,
+                clipped.clippedStart,
+                clipped.clippedEnd,
+            );
+            layer.appendChild(line);
+            this.distanceLines.push(line);
+
+            if (clipped.visibleLength < MIN_LINE_LENGTH_FOR_LABEL_PX) {
+                continue;
+            }
+
+            const midX = (clipped.start.x + clipped.end.x) / HALF_DIVISOR;
+            const midY = (clipped.start.y + clipped.end.y) / HALF_DIVISOR;
             const label = document.createElement('div');
             label.className = 'pixly-distance-label';
-            label.textContent = pxToUnit(value, unit);
-            label.style.left = `${x}px`;
-            label.style.top = `${y}px`;
+            label.textContent = pxToUnit(side.length, unit);
+            label.style.left = `${midX}px`;
+            label.style.top = `${midY}px`;
             label.style.transform = 'translate(-50%, -50%)';
             layer.appendChild(label);
             this.distanceLabels.push(label);
         }
+    }
+
+    private createDistanceLine(
+        orientation: 'horizontal' | 'vertical',
+        start: Point,
+        end: Point,
+        clippedStart: boolean,
+        clippedEnd: boolean,
+    ): HTMLDivElement {
+        const line = document.createElement('div');
+        const baseClass = orientation === 'horizontal'
+            ? 'pixly-distance-line dashed'
+            : 'pixly-distance-line vertical-dashed';
+        const clipClasses = [
+            clippedStart ? 'clipped-start' : '',
+            clippedEnd ? 'clipped-end' : '',
+        ].filter((value) => value !== '').join(' ');
+        line.className = clipClasses === ''
+            ? baseClass
+            : `${baseClass} ${clipClasses}`;
+
+        if (orientation === 'horizontal') {
+            const minX = Math.min(start.x, end.x);
+            const maxX = Math.max(start.x, end.x);
+            line.style.left = `${minX}px`;
+            line.style.top = `${start.y}px`;
+            line.style.width = `${maxX - minX}px`;
+
+            return line;
+        }
+
+        const minY = Math.min(start.y, end.y);
+        const maxY = Math.max(start.y, end.y);
+        line.style.left = `${start.x}px`;
+        line.style.top = `${minY}px`;
+        line.style.height = `${maxY - minY}px`;
+
+        return line;
     }
 
     private clearDistanceLabels(): void {
@@ -301,7 +396,12 @@ export class InspectorTool implements Tool {
             label.remove();
         }
 
+        for (const line of this.distanceLines) {
+            line.remove();
+        }
+
         this.distanceLabels = [];
+        this.distanceLines = [];
     }
 
     private hide(): void {

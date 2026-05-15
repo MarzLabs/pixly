@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { clamp, pxToUnit, rectCenter, rectDistances, rectEdgeDistance, type Rect } from './measurements';
+import {
+    clamp,
+    clipSegmentToViewport,
+    pxToUnit,
+    rectCenter,
+    rectDistances,
+    rectEdgeDistance,
+    type Rect,
+} from './measurements';
 
 function makeRect(top: number, left: number, width: number, height: number): Rect {
     return {
@@ -86,5 +94,116 @@ describe('clamp', () => {
         expect(clamp(5, 0, 10)).toBe(5);
         expect(clamp(-1, 0, 10)).toBe(0);
         expect(clamp(15, 0, 10)).toBe(10);
+    });
+});
+
+describe('clipSegmentToViewport', () => {
+    const viewport = { width: 1000, height: 800 };
+    const margin = 4;
+
+    it('returns the original endpoints when the segment is fully inside the viewport', () => {
+        // Arrange
+        const start = { x: 100, y: 200 };
+        const end = { x: 400, y: 200 };
+
+        // Act
+        const result = clipSegmentToViewport(start, end, viewport, margin);
+
+        // Assert
+        expect(result.start).toEqual(start);
+        expect(result.end).toEqual(end);
+        expect(result.clippedStart).toBe(false);
+        expect(result.clippedEnd).toBe(false);
+        expect(result.visibleLength).toBe(300);
+    });
+
+    it('clips a horizontal segment that extends past the left edge', () => {
+        // Arrange
+        const start = { x: -50, y: 100 };
+        const end = { x: 200, y: 100 };
+
+        // Act
+        const result = clipSegmentToViewport(start, end, viewport, margin);
+
+        // Assert
+        expect(result.start).toEqual({ x: margin, y: 100 });
+        expect(result.end).toEqual(end);
+        expect(result.clippedStart).toBe(true);
+        expect(result.clippedEnd).toBe(false);
+        expect(result.visibleLength).toBe(200 - margin);
+    });
+
+    it('clips a horizontal segment that extends past the right edge', () => {
+        // Arrange
+        const start = { x: 800, y: 100 };
+        const end = { x: 1200, y: 100 };
+
+        // Act
+        const result = clipSegmentToViewport(start, end, viewport, margin);
+
+        // Assert
+        expect(result.start).toEqual(start);
+        expect(result.end).toEqual({ x: viewport.width - margin, y: 100 });
+        expect(result.clippedStart).toBe(false);
+        expect(result.clippedEnd).toBe(true);
+        expect(result.visibleLength).toBe(viewport.width - margin - 800);
+    });
+
+    it('clips a vertical segment that extends past the top edge', () => {
+        // Arrange
+        const start = { x: 200, y: -30 };
+        const end = { x: 200, y: 150 };
+
+        // Act
+        const result = clipSegmentToViewport(start, end, viewport, margin);
+
+        // Assert
+        expect(result.start).toEqual({ x: 200, y: margin });
+        expect(result.end).toEqual(end);
+        expect(result.clippedStart).toBe(true);
+        expect(result.clippedEnd).toBe(false);
+        expect(result.visibleLength).toBe(150 - margin);
+    });
+
+    it('clips both ends of a vertical segment that extends past both edges', () => {
+        // Arrange
+        const start = { x: 200, y: -50 };
+        const end = { x: 200, y: 900 };
+
+        // Act
+        const result = clipSegmentToViewport(start, end, viewport, margin);
+
+        // Assert
+        expect(result.start).toEqual({ x: 200, y: margin });
+        expect(result.end).toEqual({ x: 200, y: viewport.height - margin });
+        expect(result.clippedStart).toBe(true);
+        expect(result.clippedEnd).toBe(true);
+        expect(result.visibleLength).toBe(viewport.height - margin * 2);
+    });
+
+    it('returns zero visible length when the segment is fully outside the viewport', () => {
+        // Arrange
+        const start = { x: -200, y: 100 };
+        const end = { x: -50, y: 100 };
+
+        // Act
+        const result = clipSegmentToViewport(start, end, viewport, margin);
+
+        // Assert
+        expect(result.start).toEqual({ x: margin, y: 100 });
+        expect(result.end).toEqual({ x: margin, y: 100 });
+        expect(result.clippedStart).toBe(true);
+        expect(result.clippedEnd).toBe(true);
+        expect(result.visibleLength).toBe(0);
+    });
+
+    it('throws when given a diagonal (non axis-aligned) segment', () => {
+        // Arrange
+        const start = { x: 0, y: 0 };
+        const end = { x: 100, y: 100 };
+
+        // Act / Assert
+        expect(() => clipSegmentToViewport(start, end, viewport, margin))
+            .toThrow(/axis-aligned/);
     });
 });

@@ -5,6 +5,7 @@ import { DEFAULT_SHORTCUTS } from '../constants/shortcuts';
 import { StorageKey } from '../constants/storage';
 import {
     DEFAULT_PALETTE,
+    DISTANCE_LINE_DEFAULTS,
     GRID_DEFAULTS,
     IMAGE_OVERLAY_DEFAULTS,
     INSPECTOR_PANEL_DEFAULTS,
@@ -46,6 +47,9 @@ export const DEFAULT_SETTINGS: UserSettings = {
     },
     multiSelection: {
         maxItems: MULTI_SELECTION_DEFAULTS.maxItems,
+    },
+    distanceLine: {
+        color: DISTANCE_LINE_DEFAULTS.color,
     },
     showWelcomeMessage: true,
     migrationLog: [],
@@ -115,6 +119,7 @@ export function migrateSettings(
         snap: { ...defaults.snap, ...(stored.snap ?? {}) },
         inspectorPanel: { ...defaults.inspectorPanel, ...(stored.inspectorPanel ?? {}) },
         multiSelection: { ...defaults.multiSelection, ...(stored.multiSelection ?? {}) },
+        distanceLine: { ...defaults.distanceLine, ...(stored.distanceLine ?? {}) },
         showWelcomeMessage: stored.showWelcomeMessage ?? defaults.showWelcomeMessage,
         migrationLog: trimLog(log),
     };
@@ -142,6 +147,7 @@ function cloneDefaults(): UserSettings {
         snap: { ...DEFAULT_SETTINGS.snap },
         inspectorPanel: { ...DEFAULT_SETTINGS.inspectorPanel },
         multiSelection: { ...DEFAULT_SETTINGS.multiSelection },
+        distanceLine: { ...DEFAULT_SETTINGS.distanceLine },
         migrationLog: [],
     };
 }
