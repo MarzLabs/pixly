@@ -361,10 +361,30 @@ class PopupController {
         const removeButton = document.getElementById('overlay-remove');
         const snapshotButton = document.getElementById('overlay-snapshot');
         const status = document.getElementById('overlay-status');
+        const lockToggle = document.getElementById('overlay-lock-toggle') as HTMLInputElement | null;
+        const scaleBadge = document.getElementById('overlay-scale-badge');
 
-        if (!fileInput || !opacityInput || !opacityValue || !blendSelect || !toggleButton || !removeButton || !snapshotButton || !status) {
+        if (!fileInput || !opacityInput || !opacityValue || !blendSelect || !toggleButton || !removeButton || !snapshotButton || !status || !lockToggle || !scaleBadge) {
             return;
         }
+
+        // Sync the lock toggle and scale badge with the actual content-script
+        // state in case the user toggled the lock with Alt+L or resized the
+        // overlay before opening the popup.
+        void this.refreshOverlayStateFromContent(lockToggle, scaleBadge);
+
+        // Listen for state changes broadcast by the content script (Alt+L,
+        // mid-drag resize, keyboard nudge) so the popup stays in sync while
+        // it is open.
+        chrome.runtime.onMessage.addListener((message: PixlyMessage) => {
+            if (message.type === MessageType.OverlayStateChanged) {
+                this.applyOverlayStateToControls(message.payload, lockToggle, scaleBadge);
+            }
+        });
+
+        lockToggle.addEventListener('change', async () => {
+            await this.sendOverlayState({ locked: lockToggle.checked });
+        });
 
         const initialPercent = Math.round(this.settings.overlay.opacity * OPACITY_PERCENT_DIVISOR);
         opacityInput.value = String(initialPercent);
@@ -496,6 +516,40 @@ class PopupController {
             type: MessageType.UpdateOverlayState,
             payload: patch,
         });
+    }
+
+    private async refreshOverlayStateFromContent(
+        lockToggle: HTMLInputElement,
+        scaleBadge: HTMLElement,
+    ): Promise<void> {
+        const tabId = await this.getActiveTabId();
+        if (!tabId) return;
+
+        const response = await sendMessageToTab(tabId, {
+            type: MessageType.GetOverlayState,
+            payload: undefined,
+        }) as PixlyMessage | undefined;
+
+        if (response?.type === MessageType.GetOverlayStateResponse) {
+            this.applyOverlayStateToControls(response.payload, lockToggle, scaleBadge);
+            this.overlayLoaded = response.payload.loaded;
+        }
+    }
+
+    private applyOverlayStateToControls(
+        payload: { loaded: boolean; locked: boolean; scalePercent: number },
+        lockToggle: HTMLInputElement,
+        scaleBadge: HTMLElement,
+    ): void {
+        lockToggle.checked = payload.locked;
+        lockToggle.disabled = !payload.loaded;
+
+        if (payload.loaded) {
+            scaleBadge.hidden = false;
+            scaleBadge.textContent = `${payload.scalePercent}%`;
+        } else {
+            scaleBadge.hidden = true;
+        }
     }
 
     private bindClearAll(): void {

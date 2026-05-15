@@ -19,6 +19,9 @@ export const MessageType = {
     TakeSnapshot: 'take-snapshot',
     TakeSnapshotResponse: 'take-snapshot-response',
     ShowSideBySide: 'show-side-by-side',
+    GetOverlayState: 'get-overlay-state',
+    GetOverlayStateResponse: 'get-overlay-state-response',
+    OverlayStateChanged: 'overlay-state-changed',
 
     // service worker triggers
     CommandTriggered: 'command-triggered',
@@ -69,6 +72,9 @@ export type UpdateOverlayStateMessage = BaseMessage<typeof MessageType.UpdateOve
     positionY?: number;
     visible?: boolean;
     scale?: number;
+    width?: number;
+    height?: number;
+    locked?: boolean;
 }>;
 
 export type TakeSnapshotMessage = BaseMessage<typeof MessageType.TakeSnapshot, void>;
@@ -81,6 +87,23 @@ export type TakeSnapshotResponseMessage = BaseMessage<typeof MessageType.TakeSna
 export type ShowSideBySideMessage = BaseMessage<typeof MessageType.ShowSideBySide, {
     snapshotDataUrl: string;
     overlayDataUrl: string;
+}>;
+
+export type GetOverlayStateMessage = BaseMessage<typeof MessageType.GetOverlayState, void>;
+
+export type GetOverlayStateResponseMessage = BaseMessage<typeof MessageType.GetOverlayStateResponse, {
+    loaded: boolean;
+    locked: boolean;
+    scalePercent: number;
+}>;
+
+// Fired by the content script when the overlay's lock state or scale changes
+// from within the page (Alt+L, drag-resize, keyboard nudge), so any open popup
+// can keep its toggle and scale badge in sync.
+export type OverlayStateChangedMessage = BaseMessage<typeof MessageType.OverlayStateChanged, {
+    loaded: boolean;
+    locked: boolean;
+    scalePercent: number;
 }>;
 
 export type CommandTriggeredMessage = BaseMessage<typeof MessageType.CommandTriggered, {
@@ -104,5 +127,8 @@ export type PixlyMessage =
     | TakeSnapshotMessage
     | TakeSnapshotResponseMessage
     | ShowSideBySideMessage
+    | GetOverlayStateMessage
+    | GetOverlayStateResponseMessage
+    | OverlayStateChangedMessage
     | CommandTriggeredMessage
     | NotifyErrorMessage;

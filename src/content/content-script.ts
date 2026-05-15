@@ -2,6 +2,7 @@
 // Listens to messages from the popup and the service worker, mounts the
 // Shadow DOM, manages the user settings cache and dispatches keyboard events.
 
+import { StorageKey } from '@/shared/constants/storage';
 import { ToolId, type ToolIdValue } from '@/shared/constants/tools';
 import { MessageType, type PixlyMessage } from '@/shared/types/messages';
 import { registerMessageListener } from '@/shared/messaging';
@@ -33,6 +34,22 @@ class PixlyController {
         this.applyDistanceLineColor(this.settings.distanceLine.color);
         this.registerListeners();
         this.bindKeyboardShortcuts();
+        await this.restoreOverlayIfPersisted();
+    }
+
+    // If the user had an overlay loaded before a reload / tab switch, reactivate
+    // the ImageOverlay tool so its enable() can rehydrate position, size and
+    // lock state from chrome.storage.local.
+    private async restoreOverlayIfPersisted(): Promise<void> {
+        try {
+            const stored = await chrome.storage.local.get(StorageKey.OverlayState);
+
+            if (stored[StorageKey.OverlayState]) {
+                this.ensureToolActive(ToolId.ImageOverlay);
+            }
+        } catch (error) {
+            console.warn('[Pixly] could not check persisted overlay state:', error);
+        }
     }
 
     private registerListeners(): void {
@@ -72,6 +89,15 @@ class PixlyController {
                 case MessageType.UpdateOverlayState:
                     this.getImageOverlay()?.updateState(message.payload);
                     break;
+                case MessageType.GetOverlayState: {
+                    const overlay = this.getImageOverlay();
+                    const snapshot = overlay?.getSnapshotState() ?? { loaded: false, locked: false, scalePercent: 0 };
+
+                    return {
+                        type: MessageType.GetOverlayStateResponse,
+                        payload: snapshot,
+                    };
+                }
                 case MessageType.ShowSideBySide:
                     this.ensureToolActive(ToolId.Snapshot);
                     this.getSnapshot()?.showSideBySide(message.payload.snapshotDataUrl, message.payload.overlayDataUrl);
