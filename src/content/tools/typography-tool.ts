@@ -14,7 +14,7 @@ import type { Tool, ToolContext } from './tool';
 
 const HOVER_THROTTLE_MS = 32;
 const SECTION_ID = 'typography';
-const SECTION_TITLE = 'Tipografía';
+const SECTION_TITLE = 'Typography';
 const COLOR_FALLBACK = '—';
 
 export class TypographyTool implements Tool {

@@ -45,28 +45,28 @@ export default defineManifest({
                 default: 'Alt+I',
                 mac: 'Alt+I',
             },
-            description: 'Activar/desactivar inspector de elementos',
+            description: 'Toggle element inspector',
         },
         [COMMAND_TOGGLE_OVERLAY]: {
             suggested_key: {
                 default: 'Alt+O',
                 mac: 'Alt+O',
             },
-            description: 'Mostrar/ocultar overlay de imagen',
+            description: 'Show/hide image overlay',
         },
         [COMMAND_TOGGLE_GRID]: {
             suggested_key: {
                 default: 'Alt+G',
                 mac: 'Alt+G',
             },
-            description: 'Mostrar/ocultar grid overlay',
+            description: 'Show/hide grid overlay',
         },
         [COMMAND_TOGGLE_TYPOGRAPHY]: {
             suggested_key: {
                 default: 'Alt+T',
                 mac: 'Alt+T',
             },
-            description: 'Activar/desactivar inspector tipográfico',
+            description: 'Toggle typography inspector',
         },
     },
     web_accessible_resources: [

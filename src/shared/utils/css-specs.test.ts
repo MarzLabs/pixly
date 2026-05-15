@@ -38,9 +38,9 @@ describe('formatSpecsForClipboard', () => {
         const text = formatSpecsForClipboard(specs);
 
         // Assert
-        expect(text).toContain('## Dimensiones');
-        expect(text).toContain('## Tipografía');
-        expect(text).toContain('## Posicionamiento');
+        expect(text).toContain('## Dimensions');
+        expect(text).toContain('## Typography');
+        expect(text).toContain('## Position');
 
         // Cleanup
         document.body.removeChild(div);

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -10,49 +10,49 @@
     <div class="popup-root">
         <header class="popup-header">
             <div class="popup-logo">Pixly</div>
-            <button id="clear-all" type="button" class="ghost">Limpiar todo</button>
+            <button id="clear-all" type="button" class="ghost">Clear all</button>
         </header>
 
         <div id="welcome-banner" class="popup-welcome" hidden>
             <p>
-                <strong>Pixly se actualizó.</strong> La medición entre elementos ahora funciona con <em>pin + hover</em>.
-                Prueba el nuevo panel inspector (Alt+P) y las guías libres (Alt+Shift+R).
+                <strong>Pixly has been updated.</strong> Measurement between elements now works as <em>pin + hover</em>.
+                Try the new inspector panel (Alt+P) and free guides (Alt+Shift+R).
             </p>
-            <button type="button" id="welcome-dismiss" title="Cerrar">×</button>
+            <button type="button" id="welcome-dismiss" title="Close">×</button>
         </div>
 
         <nav class="popup-tabs">
-            <button type="button" class="tab active" data-tab="tools">Herramientas</button>
-            <button type="button" class="tab" data-tab="overlay">Overlay de imagen</button>
-            <button type="button" class="tab" data-tab="settings">Configuración</button>
+            <button type="button" class="tab active" data-tab="tools">Tools</button>
+            <button type="button" class="tab" data-tab="overlay">Image overlay</button>
+            <button type="button" class="tab" data-tab="settings">Settings</button>
         </nav>
 
         <section id="tab-tools" class="tab-panel active">
             <div class="palette-block">
-                <label class="palette-label">Color seleccionado</label>
+                <label class="palette-label">Selected color</label>
                 <div id="palette-strip" class="palette-strip"></div>
-                <p class="hint">Selecciona un color y haz Shift+Click sobre un elemento para pintarlo. Ctrl+Shift+B aplica el color como contorno.</p>
+                <p class="hint">Pick a color and Shift+Click an element to paint it. Ctrl+Shift+B applies the color as an outline.</p>
             </div>
 
-            <h3 class="section-title">Etapa 1 — Inspección y medición</h3>
+            <h3 class="section-title">Stage 1 — Inspection & measurement</h3>
             <ul id="stage-1-tools" class="tool-list"></ul>
         </section>
 
         <section id="tab-overlay" class="tab-panel">
-            <h3 class="section-title">Etapa 2 — Comparación con Figma</h3>
+            <h3 class="section-title">Stage 2 — Compare with Figma</h3>
             <ul id="stage-2-tools" class="tool-list"></ul>
 
             <div class="overlay-controls">
                 <div class="field">
-                    <label for="overlay-file">Imagen de diseño</label>
+                    <label for="overlay-file">Design image</label>
                     <input type="file" id="overlay-file" accept="image/png,image/jpeg,image/webp,image/svg+xml" />
                 </div>
                 <div class="field">
-                    <label for="overlay-opacity">Opacidad: <span id="overlay-opacity-value">50%</span></label>
+                    <label for="overlay-opacity">Opacity: <span id="overlay-opacity-value">50%</span></label>
                     <input type="range" id="overlay-opacity" min="0" max="100" value="50" />
                 </div>
                 <div class="field">
-                    <label for="overlay-blend">Modo de mezcla</label>
+                    <label for="overlay-blend">Blend mode</label>
                     <select id="overlay-blend">
                         <option value="normal">normal</option>
                         <option value="multiply">multiply</option>
@@ -63,67 +63,67 @@
                     </select>
                 </div>
                 <div class="overlay-actions">
-                    <button type="button" id="overlay-toggle" class="secondary">Mostrar/ocultar</button>
-                    <button type="button" id="overlay-remove" class="ghost">Quitar imagen</button>
+                    <button type="button" id="overlay-toggle" class="secondary">Show/hide</button>
+                    <button type="button" id="overlay-remove" class="ghost">Remove image</button>
                 </div>
                 <div class="overlay-actions">
-                    <button type="button" id="overlay-snapshot" class="primary">Snapshot y comparar</button>
+                    <button type="button" id="overlay-snapshot" class="primary">Snapshot & compare</button>
                 </div>
                 <p id="overlay-status" class="status"></p>
             </div>
         </section>
 
         <section id="tab-settings" class="tab-panel">
-            <h3 class="section-title">Paleta de colores</h3>
+            <h3 class="section-title">Color palette</h3>
             <div class="palette-editor">
                 <div id="palette-editor-list" class="palette-editor-list"></div>
                 <div class="field-inline">
                     <input type="text" id="new-color-hex" placeholder="#RRGGBB" maxlength="9" />
                     <input type="color" id="new-color-picker" value="#5B5BF7" />
-                    <button type="button" id="add-color" class="secondary">Agregar</button>
+                    <button type="button" id="add-color" class="secondary">Add</button>
                 </div>
                 <p id="palette-error" class="status error"></p>
             </div>
 
-            <h3 class="section-title">Snap y panel inspector</h3>
+            <h3 class="section-title">Snap & inspector panel</h3>
             <div class="preferences-block">
                 <div class="field">
                     <label class="checkbox-row">
                         <input type="checkbox" id="snap-enabled" />
-                        <span>Activar snap al arrastrar guías</span>
+                        <span>Enable snap while dragging guides</span>
                     </label>
                 </div>
                 <div class="field">
-                    <label for="snap-threshold">Umbral de snap (px)</label>
+                    <label for="snap-threshold">Snap threshold (px)</label>
                     <div class="pref-row">
                         <input type="number" id="snap-threshold" min="1" max="20" />
                         <span class="pref-value">1–20 px</span>
                     </div>
                 </div>
                 <div class="field">
-                    <label for="inspector-side">Lado del panel inspector</label>
+                    <label for="inspector-side">Inspector panel side</label>
                     <div class="pref-row">
                         <select id="inspector-side">
-                            <option value="right">Derecho</option>
-                            <option value="left">Izquierdo</option>
+                            <option value="right">Right</option>
+                            <option value="left">Left</option>
                         </select>
                     </div>
                 </div>
                 <div class="field">
                     <label class="checkbox-row">
                         <input type="checkbox" id="inspector-hide-tooltip" />
-                        <span>Ocultar tooltip flotante cuando el panel está activo</span>
+                        <span>Hide floating tooltip when the panel is active</span>
                     </label>
                 </div>
                 <div class="field">
-                    <label for="multi-selection-max">Máximo de elementos en multiselección</label>
+                    <label for="multi-selection-max">Maximum elements in multi-selection</label>
                     <div class="pref-row">
                         <input type="number" id="multi-selection-max" min="2" max="20" />
                     </div>
                 </div>
             </div>
 
-            <h3 class="section-title">Unidad de medida</h3>
+            <h3 class="section-title">Measurement unit</h3>
             <div class="field-inline">
                 <select id="measurement-unit">
                     <option value="px">px</option>
@@ -134,19 +134,19 @@
 
             <h3 class="section-title">Grid overlay</h3>
             <div class="grid-grid">
-                <label>Columnas <input type="number" id="grid-columns" min="1" max="24" /></label>
+                <label>Columns <input type="number" id="grid-columns" min="1" max="24" /></label>
                 <label>Gutter (px) <input type="number" id="grid-gutter" min="0" max="200" /></label>
-                <label>Ancho máx. (px) <input type="number" id="grid-max-width" min="200" max="3000" /></label>
-                <label>Opacidad <input type="number" id="grid-opacity" min="0" max="1" step="0.05" /></label>
+                <label>Max width (px) <input type="number" id="grid-max-width" min="200" max="3000" /></label>
+                <label>Opacity <input type="number" id="grid-opacity" min="0" max="1" step="0.05" /></label>
                 <label class="grid-color">Color <input type="color" id="grid-color" /></label>
             </div>
 
-            <h3 class="section-title">Atajos de teclado</h3>
+            <h3 class="section-title">Keyboard shortcuts</h3>
             <ul id="shortcut-list" class="shortcut-list"></ul>
 
-            <h3 class="section-title">Restablecer</h3>
+            <h3 class="section-title">Reset</h3>
             <div class="overlay-actions">
-                <button type="button" id="reset-settings" class="ghost">Restablecer configuración por defecto</button>
+                <button type="button" id="reset-settings" class="ghost">Reset to default settings</button>
             </div>
         </section>
     </div>

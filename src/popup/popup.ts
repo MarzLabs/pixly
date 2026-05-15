@@ -174,7 +174,7 @@ class PopupController {
             const remove = document.createElement('button');
             remove.type = 'button';
             remove.textContent = '×';
-            remove.title = 'Eliminar color';
+            remove.title = 'Remove color';
             remove.addEventListener('click', async () => {
                 this.settings.palette.splice(index, 1);
 
@@ -208,13 +208,13 @@ class PopupController {
             const value = hexInput.value.trim() || picker.value;
 
             if (!isValidHexColor(value)) {
-                error.textContent = 'El valor ingresado no es un color válido. Usa el formato hex (por ejemplo, #FF5733) o un selector de color.';
+                error.textContent = 'The value entered is not a valid color. Use a hex value (e.g., #FF5733) or the color picker.';
 
                 return;
             }
 
             if (this.settings.palette.length >= PALETTE_MAX_COLORS) {
-                error.textContent = `La paleta admite hasta ${PALETTE_MAX_COLORS} colores. Elimina alguno antes de agregar otro.`;
+                error.textContent = `The palette accepts up to ${PALETTE_MAX_COLORS} colors. Remove one before adding another.`;
 
                 return;
             }
@@ -222,7 +222,7 @@ class PopupController {
             const expanded = expandShortHex(value).toUpperCase();
 
             if (this.settings.palette.includes(expanded)) {
-                error.textContent = 'Ese color ya está en la paleta.';
+                error.textContent = 'That color is already in the palette.';
 
                 return;
             }
@@ -248,7 +248,7 @@ class PopupController {
             const input = document.createElement('input');
             input.type = 'text';
             input.value = shortcut ? shortcutToString(shortcut) : '';
-            input.placeholder = 'Sin asignar';
+            input.placeholder = 'Unassigned';
             input.readOnly = true;
 
             input.addEventListener('keydown', async (event) => {
@@ -286,7 +286,7 @@ class PopupController {
 
                 if (conflict) {
                     input.classList.add('invalid');
-                    input.title = 'El atajo seleccionado entra en conflicto con un atajo existente. Por favor elige otra combinación.';
+                    input.title = 'The selected shortcut conflicts with an existing one. Please choose a different combination.';
 
                     return;
                 }
@@ -379,7 +379,7 @@ class PopupController {
             const validation = validateImageFile(file);
 
             if (!validation.ok) {
-                this.flashStatus(status, validation.message ?? 'Archivo inválido.', true);
+                this.flashStatus(status, validation.message ?? 'Invalid file.', true);
 
                 return;
             }
@@ -397,7 +397,7 @@ class PopupController {
             });
 
             this.overlayLoaded = true;
-            this.flashStatus(status, 'Imagen cargada en el overlay.', false);
+            this.flashStatus(status, 'Image loaded into overlay.', false);
         });
 
         opacityInput.addEventListener('input', async () => {
@@ -447,12 +447,12 @@ class PopupController {
 
             this.overlayLoaded = false;
             this.lastOverlayDataUrl = null;
-            this.flashStatus(status, 'Overlay removido.', false);
+            this.flashStatus(status, 'Overlay removed.', false);
         });
 
         snapshotButton.addEventListener('click', async () => {
             if (!this.lastOverlayDataUrl) {
-                this.flashStatus(status, 'Carga primero una imagen de referencia.', true);
+                this.flashStatus(status, 'Load a reference image first.', true);
 
                 return;
             }
@@ -463,7 +463,7 @@ class PopupController {
             }) as PixlyMessage | undefined;
 
             if (response?.type !== MessageType.TakeSnapshotResponse || !response.payload.dataUrl) {
-                this.flashStatus(status, response?.type === MessageType.TakeSnapshotResponse ? response.payload.error ?? 'No se pudo capturar la pantalla.' : 'No se pudo capturar la pantalla.', true);
+                this.flashStatus(status, response?.type === MessageType.TakeSnapshotResponse ? response.payload.error ?? 'Unable to capture the screen.' : 'Unable to capture the screen.', true);
 
                 return;
             }
@@ -479,7 +479,7 @@ class PopupController {
                 },
             });
 
-            this.flashStatus(status, 'Snapshot listo.', false);
+            this.flashStatus(status, 'Snapshot ready.', false);
         });
     }
 

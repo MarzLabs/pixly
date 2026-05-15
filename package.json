@@ -1,7 +1,7 @@
 {
   "name": "pixly",
-  "version": "0.2.7",
-  "description": "Extensión de Chrome para inspección visual y comparación de layouts con diseños de Figma.",
+  "version": "0.3.0",
+  "description": "Chrome extension for visual layout inspection and comparison against Figma designs.",
   "private": true,
   "type": "module",
   "scripts": {

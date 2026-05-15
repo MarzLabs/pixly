@@ -20,19 +20,19 @@ export const ToolId = {
 export type ToolIdValue = (typeof ToolId)[keyof typeof ToolId];
 
 export const TOOL_LABELS: Record<ToolIdValue, string> = {
-    [ToolId.Inspector]: 'Inspector de elementos',
-    [ToolId.Typography]: 'Inspector tipográfico',
-    [ToolId.ColorPicker]: 'Inspector de colores',
-    [ToolId.GlobalOutlines]: 'Outlines globales',
-    [ToolId.InspectSpacing]: 'Inspeccionar espaciado',
+    [ToolId.Inspector]: 'Element inspector',
+    [ToolId.Typography]: 'Typography inspector',
+    [ToolId.ColorPicker]: 'Color picker',
+    [ToolId.GlobalOutlines]: 'Global outlines',
+    [ToolId.InspectSpacing]: 'Inspect spacing',
     [ToolId.GridOverlay]: 'Grid overlay',
-    [ToolId.Rulers]: 'Reglas y guías',
-    [ToolId.DistanceMeter]: 'Medir entre dos elementos',
-    [ToolId.Magnifier]: 'Lupa',
-    [ToolId.ImageOverlay]: 'Superponer imagen de diseño',
-    [ToolId.Snapshot]: 'Snapshot y comparación',
-    [ToolId.FreeGuides]: 'Guías libres con reglas',
-    [ToolId.InspectorPanel]: 'Panel inspector lateral',
+    [ToolId.Rulers]: 'Rulers & guides',
+    [ToolId.DistanceMeter]: 'Distance meter',
+    [ToolId.Magnifier]: 'Magnifier',
+    [ToolId.ImageOverlay]: 'Image overlay',
+    [ToolId.Snapshot]: 'Snapshot & compare',
+    [ToolId.FreeGuides]: 'Free guides',
+    [ToolId.InspectorPanel]: 'Inspector panel',
 };
 
 // Tools belonging to each stage. Useful to render the popup grouped.

@@ -30,7 +30,7 @@ describe('validateImageFile', () => {
         // Assert
         expect(result.ok).toBe(false);
         expect(result.error).toBe('unsupported-format');
-        expect(result.message).toContain('PNG, JPG, WEBP o SVG');
+        expect(result.message).toContain('PNG, JPG, WEBP, or SVG');
     });
 
     it('rejects files larger than the configured limit', () => {

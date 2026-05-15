@@ -69,8 +69,8 @@ interface ComposedTooltipModel {
 
 const NO_PAYLOAD_SECTION_COUNT = 0;
 const FIRST_SECTION_INDEX = 0;
-const COPY_SUCCESS_TEMPLATE = 'Copiado: ';
-const COPY_FAILURE_MESSAGE = 'No se pudo copiar al portapapeles.';
+const COPY_SUCCESS_TEMPLATE = 'Copied: ';
+const COPY_FAILURE_MESSAGE = 'Unable to copy to clipboard.';
 
 export class HoverTooltipCoordinator {
     private readonly sections = new Map<string, RegisteredSection>();

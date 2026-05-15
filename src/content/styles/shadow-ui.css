@@ -41,6 +41,21 @@
     --pixly-radius-lg: 8px;
     --pixly-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12);
     --pixly-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.18);
+
+    /* Z-index hierarchy (within Shadow DOM stacking context).
+       Keep these tokens as the single source of truth — never hardcode
+       z-index values elsewhere in this file. Tiers:
+         decorative  — passive overlays that must stay behind all panels
+         guides      — interactive guide lines (draggable, sit above decoratives)
+         tooltip     — hover/snap tooltips, ruler tooltips
+         panel       — inspector sidebar and any full-screen modal overlay
+         notification — ephemeral banners that must always be on top */
+    --pixly-z-decorative: 10;
+    --pixly-z-guides: 20;
+    --pixly-z-tooltip: 50;
+    --pixly-z-panel: 100;
+    --pixly-z-modal: 200;
+    --pixly-z-notification: 300;
 }
 
 .pixly-layer {
@@ -50,7 +65,7 @@
     width: 100%;
     height: 100%;
     pointer-events: none;
-    z-index: 2147483640;
+    z-index: var(--pixly-z-decorative);
 }
 
 .pixly-layer.interactive {
@@ -84,7 +99,7 @@
     letter-spacing: 0.04em;
     text-transform: uppercase;
     pointer-events: none;
-    z-index: 2147483642;
+    z-index: var(--pixly-z-decorative);
     box-shadow: var(--pixly-shadow-md);
     display: flex;
     align-items: center;
@@ -114,7 +129,7 @@
     font-weight: 500;
     pointer-events: none;
     white-space: nowrap;
-    z-index: 2147483642;
+    z-index: var(--pixly-z-decorative);
     box-shadow: var(--pixly-shadow-md);
     border: 1px solid var(--pixly-overlay-border);
 }
@@ -128,7 +143,7 @@
     position: fixed;
     background: var(--pixly-accent);
     pointer-events: none;
-    z-index: 2147483642;
+    z-index: var(--pixly-z-decorative);
     opacity: 0.85;
 }
 
@@ -155,7 +170,7 @@
     max-width: 280px;
     pointer-events: auto;
     box-shadow: var(--pixly-shadow-md);
-    z-index: 2147483645;
+    z-index: var(--pixly-z-tooltip);
     border: 1px solid var(--pixly-overlay-border);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
@@ -250,7 +265,7 @@
     padding: 8px 14px;
     border-radius: var(--pixly-radius-md);
     font-size: 12px;
-    z-index: 2147483647;
+    z-index: var(--pixly-z-notification);
     pointer-events: none;
     box-shadow: var(--pixly-shadow-lg);
     border: 1px solid var(--pixly-overlay-border);
@@ -270,14 +285,14 @@
     position: fixed;
     background: rgba(126, 217, 87, 0.35);
     pointer-events: none;
-    z-index: 2147483639;
+    z-index: var(--pixly-z-decorative);
 }
 
 .pixly-spacing-margin {
     position: fixed;
     background: rgba(255, 165, 0, 0.35);
     pointer-events: none;
-    z-index: 2147483638;
+    z-index: var(--pixly-z-decorative);
 }
 
 .pixly-grid-overlay {
@@ -287,7 +302,7 @@
     width: 100%;
     height: 100%;
     pointer-events: none;
-    z-index: 2147483600;
+    z-index: var(--pixly-z-decorative);
     display: flex;
     justify-content: center;
 }
@@ -308,7 +323,7 @@
 .pixly-guide {
     position: fixed;
     pointer-events: auto;
-    z-index: 2147483641;
+    z-index: var(--pixly-z-guides);
     background: transparent;
 }
 
@@ -358,7 +373,7 @@
 .pixly-auto-guide {
     position: fixed;
     pointer-events: none;
-    z-index: 2147483635;
+    z-index: var(--pixly-z-decorative);
 }
 
 .pixly-auto-guide.horizontal {
@@ -386,7 +401,7 @@
     font-size: 10px;
     font-weight: 500;
     pointer-events: none;
-    z-index: 2147483642;
+    z-index: var(--pixly-z-guides);
     border: 1px solid var(--pixly-overlay-border);
     transform: translate(-50%, -50%);
     white-space: nowrap;
@@ -399,7 +414,7 @@
     background: var(--pixly-snap);
     border-radius: 50%;
     pointer-events: none;
-    z-index: 2147483643;
+    z-index: var(--pixly-z-guides);
     transform: translate(-50%, -50%);
     box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
 }
@@ -412,7 +427,7 @@
     border: 2px solid var(--pixly-accent);
     overflow: hidden;
     pointer-events: none;
-    z-index: 2147483645;
+    z-index: var(--pixly-z-tooltip);
     box-shadow: var(--pixly-shadow-lg);
     background: white;
 }
@@ -427,7 +442,7 @@
     position: absolute;
     pointer-events: auto;
     cursor: move;
-    z-index: 2147483600;
+    z-index: var(--pixly-z-decorative);
     user-select: none;
 }
 
@@ -444,7 +459,7 @@
     position: fixed;
     inset: 0;
     background: rgba(9, 9, 11, 0.92);
-    z-index: 2147483646;
+    z-index: var(--pixly-z-modal);
     display: flex;
     flex-direction: column;
     pointer-events: auto;
@@ -518,7 +533,7 @@
     font-weight: 600;
     font-size: 12px;
     pointer-events: none;
-    z-index: 2147483642;
+    z-index: var(--pixly-z-decorative);
     box-shadow: var(--pixly-shadow-md);
     border: 2px solid white;
 }
@@ -533,7 +548,7 @@
     background: var(--pixly-overlay-bg);
     color: var(--pixly-overlay-text);
     pointer-events: auto;
-    z-index: 2147483620;
+    z-index: var(--pixly-z-panel);
     display: flex;
     flex-direction: column;
     box-shadow: var(--pixly-shadow-lg);
@@ -865,7 +880,7 @@
     background: var(--pixly-overlay-bg);
     color: var(--pixly-overlay-muted);
     pointer-events: auto;
-    z-index: 2147483643;
+    z-index: var(--pixly-z-guides);
     overflow: hidden;
     border: 1px solid var(--pixly-overlay-border);
     backdrop-filter: blur(6px);
@@ -924,7 +939,7 @@
     font-size: 10px;
     font-weight: 500;
     pointer-events: none;
-    z-index: 2147483644;
+    z-index: var(--pixly-z-tooltip);
     font-family: 'SF Mono', Menlo, Consolas, monospace;
     box-shadow: var(--pixly-shadow-md);
 }
@@ -937,7 +952,7 @@
     outline: 1.5px solid var(--pixly-accent);
     background: var(--pixly-accent-subtle);
     pointer-events: none;
-    z-index: 2147483640;
+    z-index: var(--pixly-z-decorative);
 }
 
 .pixly-multi-bbox {
@@ -946,5 +961,5 @@
     outline: 1px dashed var(--pixly-accent);
     background: transparent;
     pointer-events: none;
-    z-index: 2147483639;
+    z-index: var(--pixly-z-decorative);
 }

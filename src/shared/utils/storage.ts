@@ -93,7 +93,7 @@ export function migrateSettings(
     if (incomingVersion < SETTINGS_SCHEMA_VERSION) {
         log.push({
             timestamp: Date.now(),
-            message: `Configuración migrada de v${incomingVersion} a v${SETTINGS_SCHEMA_VERSION}.`,
+            message: `Settings migrated from v${incomingVersion} to v${SETTINGS_SCHEMA_VERSION}.`,
         });
     }
 

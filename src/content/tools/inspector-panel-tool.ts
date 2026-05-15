@@ -16,10 +16,10 @@ import type { Tool, ToolContext } from './tool';
 
 const HOVER_THROTTLE_MS = 60;
 const COPIED_FLASH_MS = 800;
-const COPY_CONFIRMATION_TEXT = 'Copiado';
-const COPY_ALL_SPECS_SUCCESS = 'Especificaciones copiadas al portapapeles.';
-const COPY_ALL_SPECS_FAILURE = 'No se pudo copiar al portapapeles.';
-const COPY_ALL_SPECS_NO_ELEMENT = 'Selecciona o pasa el cursor sobre un elemento primero.';
+const COPY_CONFIRMATION_TEXT = 'Copied';
+const COPY_ALL_SPECS_SUCCESS = 'Specs copied to clipboard.';
+const COPY_ALL_SPECS_FAILURE = 'Unable to copy to clipboard.';
+const COPY_ALL_SPECS_NO_ELEMENT = 'Hover over or select an element first.';
 
 interface PanelSection {
     id: string;
@@ -50,12 +50,12 @@ export class InspectorPanelTool implements Tool {
     private side: InspectorPanelSide = 'right';
     private readonly sections: PanelSection[] = [
         { id: SECTION_IDS.Box, title: 'Box model', collapsed: false },
-        { id: SECTION_IDS.Typography, title: 'Tipografía', collapsed: false },
-        { id: SECTION_IDS.Colors, title: 'Colores', collapsed: false },
+        { id: SECTION_IDS.Typography, title: 'Typography', collapsed: false },
+        { id: SECTION_IDS.Colors, title: 'Colors', collapsed: false },
         { id: SECTION_IDS.Layout, title: 'Layout', collapsed: false },
-        { id: SECTION_IDS.Border, title: 'Bordes y sombras', collapsed: true },
-        { id: SECTION_IDS.Attributes, title: 'Atributos', collapsed: true },
-        { id: SECTION_IDS.Tree, title: 'Árbol DOM', collapsed: false },
+        { id: SECTION_IDS.Border, title: 'Border & shadow', collapsed: true },
+        { id: SECTION_IDS.Attributes, title: 'Attributes', collapsed: true },
+        { id: SECTION_IDS.Tree, title: 'DOM tree', collapsed: false },
     ];
     private readonly handleMouseMove = this.onMouseMove.bind(this);
     private readonly handleScroll = this.refreshIfNeeded.bind(this);
@@ -130,15 +130,15 @@ export class InspectorPanelTool implements Tool {
             <div class="pixly-inspector-header">
                 <div class="pixly-inspector-title">Inspector</div>
                 <div class="pixly-inspector-actions">
-                    <button type="button" class="pixly-icon-btn" data-action="copy-all" title="Copiar todas las specs del elemento" aria-label="Copiar todas las specs">
+                    <button type="button" class="pixly-icon-btn" data-action="copy-all" title="Copy all specs for this element" aria-label="Copy all specs">
                         <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <rect x="4" y="3" width="9" height="11" rx="1.5"></rect>
                             <path d="M6 3V2.5A1.5 1.5 0 0 1 7.5 1h2A1.5 1.5 0 0 1 11 2.5V3"></path>
                         </svg>
                     </button>
-                    <button type="button" class="pixly-icon-btn" data-action="pin" title="Fijar elemento actual">Pin</button>
-                    <button type="button" class="pixly-icon-btn" data-action="side" title="Cambiar de lado">Lado</button>
-                    <button type="button" class="pixly-icon-btn" data-action="close" title="Cerrar panel">×</button>
+                    <button type="button" class="pixly-icon-btn" data-action="pin" title="Pin current element">Pin</button>
+                    <button type="button" class="pixly-icon-btn" data-action="side" title="Switch side">Side</button>
+                    <button type="button" class="pixly-icon-btn" data-action="close" title="Close panel">×</button>
                 </div>
             </div>
             <div class="pixly-inspector-body"></div>
@@ -194,7 +194,7 @@ export class InspectorPanelTool implements Tool {
 
     private closePanel(): void {
         if (this.context) {
-            this.context.showNotification('Panel inspector cerrado.');
+            this.context.showNotification('Inspector panel closed.');
         }
 
         this.disable();
@@ -333,8 +333,8 @@ export class InspectorPanelTool implements Tool {
         if (!target) {
             this.bodyEl.innerHTML = `
                 <div class="pixly-inspector-empty">
-                    Pasa el cursor sobre un elemento para inspeccionarlo.<br/>
-                    Pulsa <strong>Pin</strong> para fijarlo y conservar la información.
+                    Hover over an element to inspect it.<br/>
+                    Press <strong>Pin</strong> to lock it and keep the information.
                 </div>
             `;
 
@@ -382,13 +382,13 @@ export class InspectorPanelTool implements Tool {
 
         node.innerHTML = `
             <div class="pixly-inspector-section-header">
-                <span>Multiselección (${summary.elements.length})</span>
+                <span>Multi-selection (${summary.elements.length})</span>
                 <span class="pixly-inspector-chevron">▼</span>
             </div>
             <div class="pixly-inspector-section-body">
                 ${elementsList}
                 ${boundingBoxRow}
-                ${summary.pairs.length > 0 ? `<h4 style="margin-top:10px; color: ${ColorToken.OverlayMuted}; font-size:10px; text-transform:uppercase; letter-spacing:0.06em;">Distancias entre pares consecutivos</h4>${pairRows}` : ''}
+                ${summary.pairs.length > 0 ? `<h4 style="margin-top:10px; color: ${ColorToken.OverlayMuted}; font-size:10px; text-transform:uppercase; letter-spacing:0.06em;">Distances between consecutive pairs</h4>${pairRows}` : ''}
             </div>
         `;
 
@@ -568,7 +568,7 @@ export class InspectorPanelTool implements Tool {
         }
 
         if (rows.length === 0) {
-            return '<div class="pixly-inspector-empty" style="padding: 12px;">Sin atributos relevantes.</div>';
+            return '<div class="pixly-inspector-empty" style="padding: 12px;">No relevant attributes.</div>';
         }
 
         return rows.join('');
@@ -582,20 +582,20 @@ export class InspectorPanelTool implements Tool {
 
         const parentNode = parent
             ? `<div class="pixly-dom-node parent" data-direction="parent">↑ ${this.escape(describeElement(parent))}</div>`
-            : '<div class="pixly-dom-node" style="opacity: 0.5;">(sin padre)</div>';
+            : '<div class="pixly-dom-node" style="opacity: 0.5;">(no parent)</div>';
 
         const currentNode = `<div class="pixly-dom-node current">${this.escape(describeElement(target))}</div>`;
 
         const childrenHeader = visibleChildren.length > 0
-            ? '<div class="pixly-dom-node children-header">↓ Hijos</div>'
-            : '<div class="pixly-dom-node children-header">↓ Sin hijos visibles</div>';
+            ? '<div class="pixly-dom-node children-header">↓ Children</div>'
+            : '<div class="pixly-dom-node children-header">↓ No visible children</div>';
 
         const childNodes = visibleChildren
             .map((child, index) => `<div class="pixly-dom-node" data-direction="child" data-child-index="${index}">${this.escape(describeElement(child))}</div>`)
             .join('');
 
         const showMore = remaining > 0
-            ? `<div class="pixly-dom-show-more">Ver ${remaining} más</div>`
+            ? `<div class="pixly-dom-show-more">Show ${remaining} more</div>`
             : '';
 
         return `

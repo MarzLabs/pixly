@@ -26,14 +26,14 @@ export class SnapshotTool implements Tool {
         this.container.className = 'pixly-side-by-side';
         this.container.innerHTML = `
             <div class="pixly-side-by-side-toolbar">
-                <strong>Comparación lado a lado</strong>
+                <strong>Side-by-side comparison</strong>
                 <div>
-                    <button type="button" data-action="close">Cerrar</button>
+                    <button type="button" data-action="close">Close</button>
                 </div>
             </div>
             <div class="pixly-side-by-side-content">
-                <div class="pixly-side-by-side-panel"><img alt="Snapshot de la página" /></div>
-                <div class="pixly-side-by-side-panel"><img alt="Diseño de referencia" /></div>
+                <div class="pixly-side-by-side-panel"><img alt="Page snapshot" /></div>
+                <div class="pixly-side-by-side-panel"><img alt="Reference design" /></div>
             </div>
         `;
 

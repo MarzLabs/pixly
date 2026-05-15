@@ -24,11 +24,11 @@ import type { Tool, ToolContext } from './tool';
 const MOUSE_THROTTLE_MS = 16;
 const NO_SIBLING_DISTANCE = 0;
 const PARENT_CHILD_WARNING_MS = 2500;
-const LIMIT_REACHED_PREFIX = 'Multiselección al máximo. Quita un elemento antes de agregar otro.';
+const LIMIT_REACHED_PREFIX = 'Multi-selection limit reached. Remove an element before adding another.';
 const DIMENSIONS_SECTION_ID = 'dimensions';
-const DIMENSIONS_SECTION_TITLE = 'Dimensiones';
+const DIMENSIONS_SECTION_TITLE = 'Dimensions';
 const DIMENSIONS_ROW_LABEL = 'width × height';
-const MULTI_SELECTION_ROW_LABEL = 'multiselección';
+const MULTI_SELECTION_ROW_LABEL = 'multi-selection';
 const SINGLE_ITEM_COUNT = 1;
 const INSPECTOR_PANEL_SELECTOR = '.pixly-inspector-panel';
 const SHADOW_HOST_QUERY_SELECTOR = '[data-pixly]';
@@ -146,7 +146,7 @@ export class InspectorTool implements Tool {
 
                 if (now - this.lastParentChildWarningAt > PARENT_CHILD_WARNING_MS) {
                     this.lastParentChildWarningAt = now;
-                    this.context?.showNotification('Estos elementos tienen relación padre-hijo; las distancias pueden no ser representativas.');
+                    this.context?.showNotification('These elements have a parent-child relationship; distances may not be representative.');
                 }
             }
 
@@ -224,7 +224,7 @@ export class InspectorTool implements Tool {
         const height = pxToUnit(rect.height, unit);
         const selectedCount = getSelectionManager().listElements().length;
         const selectionLabel = selectedCount > 0
-            ? `${selectedCount} elemento${selectedCount === SINGLE_ITEM_COUNT ? '' : 's'}`
+            ? `${selectedCount} element${selectedCount === SINGLE_ITEM_COUNT ? '' : 's'}`
             : null;
 
         const rows = [{ label: DIMENSIONS_ROW_LABEL, value: `${width} × ${height}` }];

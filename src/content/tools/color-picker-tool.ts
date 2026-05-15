@@ -14,7 +14,7 @@ import type { Tool, ToolContext } from './tool';
 
 const HOVER_THROTTLE_MS = 32;
 const SECTION_ID = 'color';
-const SECTION_TITLE = 'Color de fondo';
+const SECTION_TITLE = 'Background color';
 const COLOR_FALLBACK = '—';
 
 export class ColorPickerTool implements Tool {

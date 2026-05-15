@@ -105,7 +105,7 @@ export const NUDGE_STEP_PX = 1;
 export const NUDGE_LARGE_STEP_PX = 10;
 
 // Maximum DOM tree children listed inside the inspector panel before showing
-// a "ver más" affordance.
+// a "show more" affordance.
 export const INSPECTOR_PANEL_MAX_CHILDREN = 20;
 
 // Current settings schema version, used by the migration routine.

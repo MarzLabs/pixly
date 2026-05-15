@@ -17,7 +17,7 @@ export function validateImageFile(file: File): ImageValidationResult {
         return {
             ok: false,
             error: 'unsupported-format',
-            message: 'Formato no soportado. Por favor selecciona una imagen en formato PNG, JPG, WEBP o SVG.',
+            message: 'Unsupported format. Please select an image in PNG, JPG, WEBP, or SVG format.',
         };
     }
 
@@ -28,7 +28,7 @@ export function validateImageFile(file: File): ImageValidationResult {
         return {
             ok: false,
             error: 'file-too-large',
-            message: `La imagen excede el tamaño máximo permitido de ${maxMb} MB. Por favor reduce el tamaño y vuelve a intentarlo.`,
+            message: `The image exceeds the maximum size of ${maxMb} MB. Please reduce its size and try again.`,
         };
     }
 

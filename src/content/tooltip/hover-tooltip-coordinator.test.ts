@@ -37,7 +37,7 @@ function makeAnchorRect(): DOMRect {
 }
 
 const COLOR_PAYLOAD: TooltipSectionPayload = {
-    title: 'Color de fondo',
+    title: 'Background color',
     rows: [
         { label: 'hex', value: '#2D2E3F', copyValue: '#2D2E3F' },
         { label: 'rgb', value: 'rgba(45,46,63,1)', copyValue: 'rgba(45,46,63,1)' },
@@ -45,7 +45,7 @@ const COLOR_PAYLOAD: TooltipSectionPayload = {
 };
 
 const TYPOGRAPHY_PAYLOAD: TooltipSectionPayload = {
-    title: 'Tipografía',
+    title: 'Typography',
     rows: [
         { label: 'font-family', value: 'Inter', copyValue: 'Inter' },
         { label: 'font-size', value: '16px', copyValue: '16px' },
@@ -53,7 +53,7 @@ const TYPOGRAPHY_PAYLOAD: TooltipSectionPayload = {
 };
 
 const DIMENSIONS_PAYLOAD: TooltipSectionPayload = {
-    title: 'Dimensiones',
+    title: 'Dimensions',
     rows: [
         { label: 'width × height', value: '612 × 56' },
     ],
@@ -90,7 +90,7 @@ describe('HoverTooltipCoordinator (logic)', () => {
 
         // Assert
         expect(model.sections).toHaveLength(2);
-        expect(model.sections.map((section) => section.title)).toEqual(['Color de fondo', 'Tipografía']);
+        expect(model.sections.map((section) => section.title)).toEqual(['Background color', 'Typography']);
     });
 
     it('orders sections by priority regardless of registration order', () => {
@@ -105,7 +105,7 @@ describe('HoverTooltipCoordinator (logic)', () => {
         const model = coordinator.composeModel();
 
         // Assert
-        expect(model.sections.map((section) => section.title)).toEqual(['Dimensiones', 'Tipografía']);
+        expect(model.sections.map((section) => section.title)).toEqual(['Dimensions', 'Typography']);
     });
 
     it('omits sections whose payload was cleared', () => {
@@ -121,7 +121,7 @@ describe('HoverTooltipCoordinator (logic)', () => {
 
         // Assert
         expect(model.sections).toHaveLength(1);
-        expect(model.sections[0].title).toBe('Tipografía');
+        expect(model.sections[0].title).toBe('Typography');
     });
 
     it('removes a section entirely when disposed', () => {

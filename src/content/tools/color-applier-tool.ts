@@ -34,7 +34,7 @@ export class ColorApplierTool implements Tool {
         const target = elementUnderPoint(event.clientX, event.clientY);
 
         if (!(target instanceof HTMLElement)) {
-            this.context?.showNotification('Pasa el cursor sobre un elemento antes de aplicar el color.');
+            this.context?.showNotification('Hover over an element before applying the color.');
 
             return;
         }
@@ -42,7 +42,7 @@ export class ColorApplierTool implements Tool {
         const color = this.context?.settings.selectedPaletteColor;
 
         if (!color) {
-            this.context?.showNotification('Selecciona un color en la paleta del popup antes de aplicarlo.');
+            this.context?.showNotification('Select a color from the popup palette before applying it.');
 
             return;
         }
@@ -61,7 +61,7 @@ export class ColorApplierTool implements Tool {
             const target = elementUnderPoint(x, y);
 
             if (!(target instanceof HTMLElement)) {
-                this.context?.showNotification('Pasa el cursor sobre un elemento antes de aplicar el contorno.');
+                this.context?.showNotification('Hover over an element before applying the outline.');
 
                 return;
             }
@@ -69,7 +69,7 @@ export class ColorApplierTool implements Tool {
             const color = this.context?.settings.selectedPaletteColor;
 
             if (!color) {
-                this.context?.showNotification('Selecciona un color en la paleta del popup antes de aplicarlo.');
+                this.context?.showNotification('Select a color from the popup palette before applying it.');
 
                 return;
             }

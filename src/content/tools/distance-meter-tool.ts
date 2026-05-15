@@ -14,7 +14,7 @@ import type { Tool, ToolContext } from './tool';
 const MOUSE_THROTTLE_MS = 16;
 const PIN_LABEL_TEXT = 'Pin';
 const PIN_OFFSET_PX = 8;
-const PIN_REMOVED_MESSAGE = 'El elemento fijado ya no existe en la página.';
+const PIN_REMOVED_MESSAGE = 'The pinned element no longer exists on the page.';
 const PIN_TOOLTIP_OFFSET_PX = 12;
 const HOVER_DEBOUNCE_MS = 8;
 const DASHED_LINE_THICKNESS_PX = 1;
@@ -47,7 +47,7 @@ export class DistanceMeterTool implements Tool {
         window.addEventListener('scroll', this.handleScroll, { passive: true });
         window.addEventListener('resize', this.handleScroll, { passive: true });
 
-        this.context?.showNotification('Haz click sobre un elemento para fijarlo. Luego mueve el cursor para medir.');
+        this.context?.showNotification('Click an element to pin it, then move the cursor to measure.');
     }
 
     disable(): void {
