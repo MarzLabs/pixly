@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { clientRectInsideViewport, describeElement, elementUnderPoint, isInsidePixlyInteractivePanel } from './dom';
+import { clientRectInsideViewport, computeDiagonalTooltipPosition, describeElement, elementUnderPoint, isInsidePixlyInteractivePanel } from './dom';
 import { SHADOW_HOST_ID, PIXLY_INTERACTIVE_ATTR } from '../constants/ui';
 
 describe('describeElement', () => {
@@ -192,5 +192,57 @@ describe('clientRectInsideViewport', () => {
         // Assert
         expect(tooFar).toEqual({ x: 1000 - 200 - 16, y: 800 - 100 - 16 });
         expect(tooClose).toEqual({ x: 16, y: 16 });
+    });
+});
+
+describe('computeDiagonalTooltipPosition', () => {
+    const VIEWPORT = { width: 1000, height: 800 };
+    const TOOLTIP = { width: 200, height: 100 };
+    const GAP = 8;
+    const MARGIN = 8;
+
+    it('places the tooltip diagonally off the bottom-right corner by default', () => {
+        // Arrange — small element with room on every side.
+        const anchor = { top: 200, right: 300, bottom: 240, left: 100 };
+
+        // Act
+        const position = computeDiagonalTooltipPosition(anchor, TOOLTIP, VIEWPORT, GAP, MARGIN);
+
+        // Assert — offset beyond the right and bottom edges plus the gap.
+        expect(position).toEqual({ x: 300 + GAP, y: 240 + GAP });
+    });
+
+    it('flips to the left when there is not enough room on the right', () => {
+        // Arrange — element hugging the right edge of the viewport.
+        const anchor = { top: 200, right: 980, bottom: 240, left: 850 };
+
+        // Act
+        const position = computeDiagonalTooltipPosition(anchor, TOOLTIP, VIEWPORT, GAP, MARGIN);
+
+        // Assert — tooltip sits to the left of the element, still below it.
+        expect(position).toEqual({ x: 850 - GAP - TOOLTIP.width, y: 240 + GAP });
+    });
+
+    it('flips above when there is not enough room below', () => {
+        // Arrange — element near the bottom of the viewport.
+        const anchor = { top: 720, right: 300, bottom: 760, left: 100 };
+
+        // Act
+        const position = computeDiagonalTooltipPosition(anchor, TOOLTIP, VIEWPORT, GAP, MARGIN);
+
+        // Assert — tooltip sits above the element, still to its right.
+        expect(position).toEqual({ x: 300 + GAP, y: 720 - GAP - TOOLTIP.height });
+    });
+
+    it('clamps to the viewport margins for an element wider than the available space', () => {
+        // Arrange — element so wide that both horizontal sides overflow.
+        const anchor = { top: 100, right: 999, bottom: 140, left: 1 };
+
+        // Act
+        const position = computeDiagonalTooltipPosition(anchor, TOOLTIP, VIEWPORT, GAP, MARGIN);
+
+        // Assert — left flip would land off-screen, so it clamps to the margin.
+        expect(position.x).toBe(MARGIN);
+        expect(position.y).toBe(140 + GAP);
     });
 });

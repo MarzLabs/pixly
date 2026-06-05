@@ -114,6 +114,42 @@ export function clientRectInsideViewport(rect: { width: number; height: number }
     };
 }
 
+interface AnchorEdges {
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+}
+
+// Position a floating panel diagonally off a corner of the anchor element so it
+// never overlaps the element's box — nor the spacing badges that hug its edges,
+// since the panel is offset on BOTH axes beyond an edge plus a gap. The
+// bottom-right quadrant is preferred; each axis independently flips to the
+// opposite side when there is not enough room before the viewport margin. A
+// final clamp keeps the panel fully on-screen for elements larger than the
+// available space.
+export function computeDiagonalTooltipPosition(
+    anchor: AnchorEdges,
+    tooltipSize: { width: number; height: number },
+    viewport: { width: number; height: number },
+    gapPx: number,
+    marginPx: number,
+): { x: number; y: number } {
+    const fitsRight = anchor.right + gapPx + tooltipSize.width + marginPx <= viewport.width;
+    const fitsBelow = anchor.bottom + gapPx + tooltipSize.height + marginPx <= viewport.height;
+
+    const desiredX = fitsRight ? anchor.right + gapPx : anchor.left - gapPx - tooltipSize.width;
+    const desiredY = fitsBelow ? anchor.bottom + gapPx : anchor.top - gapPx - tooltipSize.height;
+
+    const maxX = viewport.width - tooltipSize.width - marginPx;
+    const maxY = viewport.height - tooltipSize.height - marginPx;
+
+    return {
+        x: Math.max(marginPx, Math.min(maxX, desiredX)),
+        y: Math.max(marginPx, Math.min(maxY, desiredY)),
+    };
+}
+
 export async function copyTextToClipboard(text: string): Promise<boolean> {
     try {
         await navigator.clipboard.writeText(text);

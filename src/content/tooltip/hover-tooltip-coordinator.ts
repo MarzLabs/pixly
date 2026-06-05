@@ -17,7 +17,7 @@
 // `getSelectionManager` / `getGuideManager` pattern in the codebase).
 
 import { TOOLTIP_OFFSET_PX, VIEWPORT_MARGIN_PX, PIXLY_INTERACTIVE_ATTR } from '@/shared/constants/ui';
-import { clientRectInsideViewport, copyTextToClipboard, describeElement } from '@/shared/utils/dom';
+import { computeDiagonalTooltipPosition, copyTextToClipboard, describeElement } from '@/shared/utils/dom';
 import { ensureShadowMount } from '../shadow-host';
 
 // Section priority defines the vertical order inside the tooltip. Lower values
@@ -247,12 +247,11 @@ export class HoverTooltipCoordinator {
 
     private positionTooltip(tooltip: HTMLDivElement, anchorRect: DOMRect): void {
         const tooltipRect = tooltip.getBoundingClientRect();
-        const desiredX = anchorRect.left;
-        const desiredY = anchorRect.bottom + TOOLTIP_OFFSET_PX;
-        const position = clientRectInsideViewport(
+        const position = computeDiagonalTooltipPosition(
+            anchorRect,
             { width: tooltipRect.width, height: tooltipRect.height },
-            desiredX,
-            desiredY,
+            { width: window.innerWidth, height: window.innerHeight },
+            TOOLTIP_OFFSET_PX,
             VIEWPORT_MARGIN_PX,
         );
 
