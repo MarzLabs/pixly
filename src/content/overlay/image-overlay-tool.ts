@@ -11,10 +11,8 @@ import { sendMessageToRuntime } from '@/shared/messaging';
 import { ensureShadowMount } from '../shadow-host';
 import type { Tool, ToolContext } from '../tools/tool';
 import {
-    clampToViewport,
     computeResize,
     nudgePosition,
-    RESIZE_MIN_DIMENSION_PX,
     scalePercent,
     type Point,
     type Rect,
@@ -254,9 +252,13 @@ export class ImageOverlayTool implements Tool {
         // global rules (e.g. `* { box-sizing: border-box; margin: 0 }`) cannot
         // corrupt the overlay layout. Individual properties are set explicitly
         // after the reset so nothing relies on browser defaults.
+        //
+        // position: absolute (relative to the document) so the overlay scrolls
+        // with the page. position: fixed would pin it to the viewport, causing
+        // it to appear to jump relative to page content on scroll.
         container.style.cssText = [
             'all: initial',
-            'position: fixed',
+            'position: absolute',
             'top: 0',
             'left: 0',
             `z-index: ${String(OVERLAY_LIGHT_DOM_Z_INDEX)}`,
@@ -399,10 +401,12 @@ export class ImageOverlayTool implements Tool {
             return;
         }
 
-        // Begin drag and select.
+        // Begin drag and select. Use page coordinates (client + scroll) so the
+        // overlay, which is position:absolute, moves correctly relative to the
+        // document rather than the viewport.
         this.setSelected(true);
         this.drag = {
-            pointerOffset: { x: event.clientX, y: event.clientY },
+            pointerOffset: { x: event.clientX + window.scrollX, y: event.clientY + window.scrollY },
             startPosition: { x: this.state.positionX, y: this.state.positionY },
         };
         event.preventDefault();
@@ -430,13 +434,19 @@ export class ImageOverlayTool implements Tool {
         // the exact corner produces an immediate size jump equal to the distance
         // from the click to the corner (the handle is offset HANDLE_OFFSET_PX px
         // outside the container, so the offset is always non-zero in practice).
+        //
+        // Corner positions are document-space; the pointer is viewport-space.
+        // Convert the pointer to document-space by adding the current scroll
+        // offset so the subtraction operates in the same coordinate system.
         const cornerX = handle.endsWith('right') ? startRect.x + startRect.width : startRect.x;
         const cornerY = handle.startsWith('bottom') ? startRect.y + startRect.height : startRect.y;
+        const pageX = event.clientX + window.scrollX;
+        const pageY = event.clientY + window.scrollY;
 
         this.resize = {
             handle,
             startRect,
-            pointerOffset: { x: event.clientX - cornerX, y: event.clientY - cornerY },
+            pointerOffset: { x: pageX - cornerX, y: pageY - cornerY },
             preserveAspectRatio: !event.shiftKey,
         };
         this.setSelected(true);
@@ -451,17 +461,15 @@ export class ImageOverlayTool implements Tool {
         }
 
         if (this.drag && this.state) {
-            const deltaX = event.clientX - this.drag.pointerOffset.x;
-            const deltaY = event.clientY - this.drag.pointerOffset.y;
-            const proposed: Rect = {
-                x: this.drag.startPosition.x + deltaX,
-                y: this.drag.startPosition.y + deltaY,
-                width: this.state.width,
-                height: this.state.height,
-            };
-            const clamped = clampToViewport(proposed, this.viewportSize());
-            this.state.positionX = clamped.x;
-            this.state.positionY = clamped.y;
+            // Use page coordinates so drag distance is measured in document
+            // space, matching the position:absolute coordinate system.
+            const pageX = event.clientX + window.scrollX;
+            const pageY = event.clientY + window.scrollY;
+            const deltaX = pageX - this.drag.pointerOffset.x;
+            const deltaY = pageY - this.drag.pointerOffset.y;
+
+            this.state.positionX = this.drag.startPosition.x + deltaX;
+            this.state.positionY = this.drag.startPosition.y + deltaY;
             this.applyStyles();
         }
     }
@@ -488,31 +496,24 @@ export class ImageOverlayTool implements Tool {
         // without committing the mouseup (acceptance criterion 3).
         this.resize.preserveAspectRatio = !event.shiftKey;
 
+        // Convert the viewport-relative pointer to document-space coordinates
+        // so the resize geometry operates in the same space as positionX/Y.
+        const pageX = event.clientX + window.scrollX;
+        const pageY = event.clientY + window.scrollY;
+
         const result = computeResize({
             handle: this.resize.handle,
             startRect: this.resize.startRect,
-            pointer: { x: event.clientX, y: event.clientY },
+            pointer: { x: pageX, y: pageY },
             pointerOffset: this.resize.pointerOffset,
             naturalSize: { width: this.state.naturalWidth, height: this.state.naturalHeight },
             preserveAspectRatio: this.resize.preserveAspectRatio,
         });
-        const clamped = clampToViewport(result.rect, this.viewportSize());
 
-        // When the clamp shifts the container position (e.g., the overlay was
-        // growing into the left or top viewport edge), the anchor — the corner
-        // opposite the active handle — would visually jump because the
-        // container moves while keeping the same size. To keep the anchor
-        // fixed, reduce the width/height by the same amount the clamp moved
-        // the position, so the inactive corner stays at its geometric position.
-        const dx = clamped.x - result.rect.x;
-        const dy = clamped.y - result.rect.y;
-        const anchoredWidth = Math.max(result.rect.width - dx, RESIZE_MIN_DIMENSION_PX);
-        const anchoredHeight = Math.max(result.rect.height - dy, RESIZE_MIN_DIMENSION_PX);
-
-        this.state.positionX = clamped.x;
-        this.state.positionY = clamped.y;
-        this.state.width = anchoredWidth;
-        this.state.height = anchoredHeight;
+        this.state.positionX = result.rect.x;
+        this.state.positionY = result.rect.y;
+        this.state.width = result.rect.width;
+        this.state.height = result.rect.height;
         this.applyStyles();
         this.renderResizeTooltip(result.snapped, result.capped, !this.resize.preserveAspectRatio);
     }
@@ -543,9 +544,15 @@ export class ImageOverlayTool implements Tool {
         this.tooltip.textContent = `${widthRounded} × ${heightRounded} — ${suffix}`;
         this.tooltip.classList.toggle('is-snapped', snapped);
 
-        const anchorOffset = 12;
-        this.tooltip.style.left = `${this.state.positionX + this.state.width + anchorOffset}px`;
-        this.tooltip.style.top = `${this.state.positionY + this.state.height + anchorOffset}px`;
+        // positionX/Y are document coordinates; the tooltip lives in the shadow
+        // host which is position:fixed, so convert to viewport coordinates by
+        // subtracting the current scroll offset.
+        const tooltipAnchorOffset = 12;
+        const viewportX = this.state.positionX - window.scrollX;
+        const viewportY = this.state.positionY - window.scrollY;
+
+        this.tooltip.style.left = `${viewportX + this.state.width + tooltipAnchorOffset}px`;
+        this.tooltip.style.top = `${viewportY + this.state.height + tooltipAnchorOffset}px`;
     }
 
     private ensureTooltip(): void {
@@ -572,8 +579,13 @@ export class ImageOverlayTool implements Tool {
             layer.appendChild(this.lockHint);
         }
 
-        this.lockHint.style.left = `${this.state.positionX + this.state.width / 2}px`;
-        this.lockHint.style.top = `${this.state.positionY + this.state.height / 2}px`;
+        // positionX/Y are document coordinates; the lock hint lives in the
+        // shadow host (position:fixed), so convert to viewport coordinates.
+        const hintViewportX = this.state.positionX - window.scrollX;
+        const hintViewportY = this.state.positionY - window.scrollY;
+
+        this.lockHint.style.left = `${hintViewportX + this.state.width / 2}px`;
+        this.lockHint.style.top = `${hintViewportY + this.state.height / 2}px`;
         this.lockHint.classList.remove('is-fading');
         // Force reflow so the next class re-triggers the CSS transition.
         void this.lockHint.offsetWidth;
@@ -645,12 +657,9 @@ export class ImageOverlayTool implements Tool {
             direction,
             event.shiftKey,
         );
-        const clamped = clampToViewport(
-            { x: next.x, y: next.y, width: this.state.width, height: this.state.height },
-            this.viewportSize(),
-        );
-        this.state.positionX = clamped.x;
-        this.state.positionY = clamped.y;
+
+        this.state.positionX = next.x;
+        this.state.positionY = next.y;
         this.applyStyles();
         this.schedulePersist();
     }
@@ -684,10 +693,6 @@ export class ImageOverlayTool implements Tool {
 
         this.selected = value;
         this.applyStyles();
-    }
-
-    private viewportSize(): { width: number; height: number } {
-        return { width: window.innerWidth, height: window.innerHeight };
     }
 
     private schedulePersist(): void {
@@ -788,6 +793,7 @@ export class ImageOverlayTool implements Tool {
 
     private broadcastStateChange(): void {
         const snapshot = this.getSnapshotState();
+
         // Fire-and-forget — the popup may not be open, which is fine.
         void sendMessageToRuntime({
             type: MessageType.OverlayStateChanged,
