@@ -1,20 +1,23 @@
-// Fix broken images: overlays a neutral placeholder on every <img> that has
-// failed to load so designers and engineers can audit page layout when image
-// hosts are misconfigured.
+// Fix broken images: replaces every <img> that has failed to load with a
+// neutral, in-flow placeholder so designers and engineers can audit page
+// layout when image hosts are misconfigured.
 //
 // Strategy notes:
 // - Inline styles only. Avoids injecting a <style> tag so the tool keeps
 //   working on pages with a strict style-src CSP.
-// - One sibling <div> per broken <img>, positioned via `position: fixed` and
-//   the image's bounding rect. We never mutate the <img> element, so disabling
-//   the tool is a clean removal of the sibling nodes.
+// - DOM replacement (not a floating overlay): the broken <img> is swapped for
+//   a placeholder <div> that takes its place in normal flow. The original
+//   <img> is kept *hidden inside* the placeholder so it stays connected to the
+//   document — recovery detection (load/error events, src mutations) keeps
+//   working — and so disabling the tool is a clean swap back to the original.
+// - Because the placeholder lives in normal flow, it scrolls natively with the
+//   page. The previous position:fixed overlay had to be repositioned every
+//   frame on scroll, which lagged behind the native scroll and produced a
+//   visible ghosting effect. There is no per-frame repositioning anymore.
 // - Off-screen images are evaluated lazily via IntersectionObserver to keep
 //   activation fast on large galleries.
-// - MutationObserver watches the document for added/removed <img> elements
-//   *and* for `style`/`src` attribute changes so we re-evaluate when the page
-//   reassigns either of them.
-// - ResizeObserver tracks layout shifts on each tracked image so the overlay
-//   stays aligned without polling.
+// - MutationObserver watches the document for added/removed <img> elements and
+//   for `src` changes so we re-evaluate when the page reassigns the source.
 
 import {
     BROKEN_IMAGES_DEFAULTS,
@@ -34,16 +37,23 @@ import type { Tool, ToolContext } from './tool';
 
 const PLACEHOLDER_DATASET_FLAG = 'pixlyBrokenImagesOverlay';
 const PLACEHOLDER_DATA_ATTR = 'data-pixly-broken-image';
+const PLACEHOLDER_SELECTOR = `[${PLACEHOLDER_DATA_ATTR}]`;
 const TRACKED_IMAGE_FLAG = 'pixlyBrokenImageTracked';
-const PLACEHOLDER_Z_INDEX = '2147483600';
 const ALIGNMENT_PROBE_PIXELS = 1;
+const HIDDEN_DISPLAY = 'none';
 const CSP_FALLBACK_MESSAGE = 'Fix broken images could not apply placeholders on this page (CSP restriction).';
+
+// Outer display values that establish a block-level box. Anything else (inline,
+// inline-block, …) is treated as inline so the placeholder keeps the original
+// image's inline-vs-block flow behavior.
+const BLOCK_LEVEL_DISPLAYS = new Set(['block', 'flex', 'grid', 'list-item', 'table']);
 
 interface TrackedImage {
     image: HTMLImageElement;
     placeholder: HTMLDivElement;
-    onError: () => void;
-    onLoad: () => void;
+    labelContainer: HTMLDivElement;
+    // The image's own inline `display` before we hid it, restored on untrack.
+    previousInlineDisplay: string;
 }
 
 export class BrokenImagesTool implements Tool {
@@ -56,11 +66,7 @@ export class BrokenImagesTool implements Tool {
     private readonly pendingImages = new Set<HTMLImageElement>();
 
     private intersectionObserver: IntersectionObserver | null = null;
-    private resizeObserver: ResizeObserver | null = null;
     private mutationObserver: MutationObserver | null = null;
-    private scrollHandler: (() => void) | null = null;
-    private resizeHandler: (() => void) | null = null;
-    private repositionFrame: number | null = null;
     private cspFallbackNotified = false;
 
     enable(context: ToolContext): void {
@@ -70,7 +76,6 @@ export class BrokenImagesTool implements Tool {
 
         this.installObservers();
         this.scanAllImages();
-        this.bindWindowEvents();
     }
 
     disable(): void {
@@ -79,25 +84,8 @@ export class BrokenImagesTool implements Tool {
 
         this.intersectionObserver?.disconnect();
         this.intersectionObserver = null;
-        this.resizeObserver?.disconnect();
-        this.resizeObserver = null;
         this.mutationObserver?.disconnect();
         this.mutationObserver = null;
-
-        if (this.scrollHandler) {
-            window.removeEventListener('scroll', this.scrollHandler, true);
-            this.scrollHandler = null;
-        }
-
-        if (this.resizeHandler) {
-            window.removeEventListener('resize', this.resizeHandler);
-            this.resizeHandler = null;
-        }
-
-        if (this.repositionFrame !== null) {
-            cancelAnimationFrame(this.repositionFrame);
-            this.repositionFrame = null;
-        }
 
         for (const tracked of this.tracked.values()) {
             this.detachTrackedImage(tracked);
@@ -133,52 +121,12 @@ export class BrokenImagesTool implements Tool {
             }
         });
 
-        this.resizeObserver = new ResizeObserver((entries) => {
-            for (const entry of entries) {
-                if (entry.target instanceof HTMLImageElement) {
-                    const tracked = this.tracked.get(entry.target);
-
-                    if (tracked) {
-                        this.renderPlaceholder(tracked);
-                    }
-                }
-            }
-        });
-
         this.mutationObserver = new MutationObserver((mutations) => this.onMutations(mutations));
         this.mutationObserver.observe(document.body, {
             childList: true,
             subtree: true,
             attributes: true,
-            attributeFilter: ['src', 'style'],
-        });
-    }
-
-    private bindWindowEvents(): void {
-        // Scroll and resize can shift the bounding rect of any tracked <img>
-        // without a layout-affecting mutation (e.g., position: sticky parents),
-        // so we reposition every placeholder on the next frame.
-        const schedule = (): void => this.scheduleReposition();
-        this.scrollHandler = schedule;
-        this.resizeHandler = schedule;
-
-        // Capture phase is required to catch scroll events from nested
-        // scrollable containers, not just the window itself.
-        window.addEventListener('scroll', this.scrollHandler, true);
-        window.addEventListener('resize', this.resizeHandler);
-    }
-
-    private scheduleReposition(): void {
-        if (this.repositionFrame !== null) {
-            return;
-        }
-
-        this.repositionFrame = requestAnimationFrame(() => {
-            this.repositionFrame = null;
-
-            for (const tracked of this.tracked.values()) {
-                this.renderPlaceholder(tracked);
-            }
+            attributeFilter: ['src'],
         });
     }
 
@@ -192,19 +140,15 @@ export class BrokenImagesTool implements Tool {
                 for (const node of Array.from(mutation.removedNodes)) {
                     this.queueRemovedNode(node);
                 }
-            } else if (mutation.type === 'attributes' && mutation.target instanceof HTMLImageElement) {
-                if (mutation.attributeName === 'src') {
-                    // Image source changed: clear cached error state so the
-                    // new load is re-evaluated from scratch.
-                    this.erroredImages.delete(mutation.target);
-                    this.evaluateImage(mutation.target);
-                } else if (mutation.attributeName === 'style') {
-                    const tracked = this.tracked.get(mutation.target);
-
-                    if (tracked) {
-                        this.renderPlaceholder(tracked);
-                    }
-                }
+            } else if (
+                mutation.type === 'attributes' &&
+                mutation.attributeName === 'src' &&
+                mutation.target instanceof HTMLImageElement
+            ) {
+                // Image source changed: clear cached error state so the new
+                // load is re-evaluated from scratch.
+                this.erroredImages.delete(mutation.target);
+                this.evaluateImage(mutation.target);
             }
         }
     }
@@ -230,6 +174,13 @@ export class BrokenImagesTool implements Tool {
 
     private queueRemovedNode(node: Node): void {
         if (node instanceof HTMLImageElement) {
+            // A tracked image is re-homed into its placeholder, which the
+            // observer reports as a removal from the original parent. It is
+            // still connected, so ignore it — only act on a genuine detach.
+            if (node.isConnected) {
+                return;
+            }
+
             this.untrackImage(node);
 
             return;
@@ -258,7 +209,10 @@ export class BrokenImagesTool implements Tool {
     }
 
     private evaluateImage(image: HTMLImageElement): void {
-        if (this.isPlaceholderElement(image)) {
+        // Skip our own hidden <img> nested inside a placeholder. Mutation and
+        // intersection callbacks can surface it, but it is not a fresh
+        // candidate — its lifecycle is driven by its load/error listeners.
+        if (image.closest(PLACEHOLDER_SELECTOR)) {
             return;
         }
 
@@ -277,8 +231,7 @@ export class BrokenImagesTool implements Tool {
             image.addEventListener('load', () => this.handleImageLoad(image));
         }
 
-        const probe = this.buildProbe(image);
-        const evaluation = evaluateImage(probe);
+        const evaluation = evaluateImage(this.buildProbe(image));
 
         if (evaluation.reason === 'still-loading') {
             this.pendingImages.add(image);
@@ -315,11 +268,32 @@ export class BrokenImagesTool implements Tool {
 
     private handleImageError(image: HTMLImageElement): void {
         this.erroredImages.add(image);
+
+        if (this.tracked.has(image)) {
+            // Already shown as broken; nothing changes.
+            return;
+        }
+
         this.evaluateImage(image);
     }
 
     private handleImageLoad(image: HTMLImageElement): void {
         this.erroredImages.delete(image);
+
+        // A tracked image that now loads cleanly has recovered: probe it
+        // directly (it lives hidden inside the placeholder, so the visibility
+        // guard in evaluateImage would otherwise short-circuit) and swap the
+        // real image back in.
+        if (this.tracked.has(image)) {
+            const evaluation = evaluateImage(this.buildProbe(image));
+
+            if (!evaluation.isBroken) {
+                this.untrackImage(image);
+            }
+
+            return;
+        }
+
         this.evaluateImage(image);
     }
 
@@ -346,20 +320,37 @@ export class BrokenImagesTool implements Tool {
             return;
         }
 
+        // Measure the image's box and resolve flow-relevant styles *before*
+        // mutating the DOM, while the image still occupies its natural slot.
+        const computed = window.getComputedStyle(image);
+        const rect = image.getBoundingClientRect();
+        const isBlockLevel = BLOCK_LEVEL_DISPLAYS.has(computed.display);
+
         const placeholder = document.createElement('div');
         placeholder.setAttribute(PLACEHOLDER_DATA_ATTR, '');
         placeholder.dataset[PLACEHOLDER_DATASET_FLAG] = 'true';
-        document.body.appendChild(placeholder);
+
+        const labelContainer = document.createElement('div');
+
+        // Swap the placeholder into the image's slot, then re-home the image
+        // (now hidden) inside it. The image stays connected to the document so
+        // its load/error listeners and src mutations keep flowing.
+        const previousInlineDisplay = image.style.display;
+        image.replaceWith(placeholder);
+        image.style.display = HIDDEN_DISPLAY;
+        placeholder.appendChild(image);
+        placeholder.appendChild(labelContainer);
 
         const tracked: TrackedImage = {
             image,
             placeholder,
-            onError: () => this.handleImageError(image),
-            onLoad: () => this.handleImageLoad(image),
+            labelContainer,
+            previousInlineDisplay,
         };
 
+        this.applyPlaceholderLayout(placeholder, computed, rect, isBlockLevel);
         this.tracked.set(image, tracked);
-        this.resizeObserver?.observe(image);
+        this.intersectionObserver?.unobserve(image);
         this.renderPlaceholder(tracked);
         this.detectCspBlocking(placeholder);
     }
@@ -375,86 +366,107 @@ export class BrokenImagesTool implements Tool {
         this.tracked.delete(image);
     }
 
+    // Restore the original image to its slot and discard the placeholder. The
+    // image is currently a child of the placeholder, so replacing the
+    // placeholder with the image moves it back into the document flow.
     private detachTrackedImage(tracked: TrackedImage): void {
-        this.resizeObserver?.unobserve(tracked.image);
         this.intersectionObserver?.unobserve(tracked.image);
-        tracked.placeholder.remove();
-    }
+        tracked.image.style.display = tracked.previousInlineDisplay;
 
-    private isPlaceholderElement(node: Element): boolean {
-        if (node instanceof HTMLElement) {
-            return node.dataset[PLACEHOLDER_DATASET_FLAG] === 'true';
+        if (tracked.placeholder.isConnected) {
+            tracked.placeholder.replaceWith(tracked.image);
+        } else {
+            tracked.placeholder.remove();
         }
-
-        return false;
     }
 
     // ---------- Rendering ----------
+
+    // Size the placeholder and reproduce the image's flow-affecting box so the
+    // surrounding layout does not shift when we swap the element.
+    private applyPlaceholderLayout(
+        placeholder: HTMLDivElement,
+        computed: CSSStyleDeclaration,
+        rect: DOMRect,
+        isBlockLevel: boolean,
+    ): void {
+        const size = decidePlaceholderSize(rect.width, rect.height);
+
+        placeholder.style.boxSizing = 'border-box';
+        placeholder.style.width = `${String(size.width)}px`;
+        placeholder.style.height = `${String(size.height)}px`;
+        placeholder.style.maxWidth = '100%';
+
+        // flex / inline-flex preserves the original block-vs-inline flow level
+        // while letting us center the label inside the box.
+        placeholder.style.display = isBlockLevel ? 'flex' : 'inline-flex';
+        placeholder.style.flexDirection = 'column';
+        placeholder.style.alignItems = 'center';
+        placeholder.style.justifyContent = 'center';
+        placeholder.style.gap = '2px';
+        placeholder.style.overflow = 'hidden';
+        placeholder.style.textAlign = 'center';
+        placeholder.style.padding = '4px 8px';
+        placeholder.style.color = ColorToken.Gray600;
+        placeholder.style.font = `${FontWeight.Medium} ${FontSize.Sm}/1.3 ${FontStack.Sans}`;
+
+        // Copy the flow-relevant box properties so neighbors keep their spacing.
+        placeholder.style.marginTop = computed.marginTop;
+        placeholder.style.marginRight = computed.marginRight;
+        placeholder.style.marginBottom = computed.marginBottom;
+        placeholder.style.marginLeft = computed.marginLeft;
+        placeholder.style.verticalAlign = computed.verticalAlign;
+        placeholder.style.borderRadius = computed.borderRadius;
+        placeholder.style.boxShadow = computed.boxShadow;
+        placeholder.style.clipPath = computed.clipPath;
+    }
 
     private renderPlaceholder(tracked: TrackedImage): void {
         if (!this.settings) {
             return;
         }
 
-        const rect = tracked.image.getBoundingClientRect();
-        const style = window.getComputedStyle(tracked.image);
-        const size = decidePlaceholderSize(rect.width, rect.height);
-
         const config = this.settings.brokenImages;
+        const rect = tracked.placeholder.getBoundingClientRect();
+        const size = decidePlaceholderSize(rect.width, rect.height);
         const rawSrc = tracked.image.getAttribute('src') ?? '';
         const truncated = rawSrc.length === 0 ? '(no src)' : truncateUrl(rawSrc, config.urlMaxChars);
-        const dimensionsLabel = `${size.width}×${size.height}`;
+        const dimensionsLabel = `${String(size.width)}×${String(size.height)}`;
 
-        const placeholder = tracked.placeholder;
-        placeholder.style.position = 'fixed';
-        placeholder.style.top = `${rect.top}px`;
-        placeholder.style.left = `${rect.left}px`;
-        placeholder.style.width = `${size.width}px`;
-        placeholder.style.height = `${size.height}px`;
-        placeholder.style.background = config.backgroundColor;
-        placeholder.style.border = `1px solid ${ColorToken.Gray300}`;
-        placeholder.style.borderRadius = style.borderRadius;
-        placeholder.style.boxSizing = 'border-box';
-        placeholder.style.display = 'flex';
-        placeholder.style.flexDirection = 'column';
-        placeholder.style.alignItems = 'center';
-        placeholder.style.justifyContent = 'center';
-        placeholder.style.gap = '2px';
-        placeholder.style.color = ColorToken.Gray600;
-        placeholder.style.font = `${FontWeight.Medium} ${FontSize.Sm}/1.3 ${FontStack.Sans}`;
-        placeholder.style.textAlign = 'center';
-        placeholder.style.padding = '4px 8px';
-        placeholder.style.overflow = 'hidden';
-        placeholder.style.pointerEvents = 'none';
-        placeholder.style.zIndex = PLACEHOLDER_Z_INDEX;
-        placeholder.style.boxShadow = style.boxShadow;
-        placeholder.style.clipPath = style.clipPath;
+        tracked.placeholder.style.background = config.backgroundColor;
+        tracked.placeholder.style.border = `1px solid ${ColorToken.Gray300}`;
+        tracked.placeholder.title = `${dimensionsLabel} · ${rawSrc || '(no src)'}`;
 
-        if (size.showLabel) {
-            placeholder.innerHTML = '';
+        tracked.labelContainer.innerHTML = '';
 
-            const dimensions = document.createElement('span');
-            dimensions.textContent = dimensionsLabel;
-            dimensions.style.fontWeight = String(FontWeight.Semibold);
-            dimensions.style.color = ColorToken.Gray700;
-
-            const url = document.createElement('span');
-            url.textContent = truncated;
-            url.style.fontSize = FontSize.Xs;
-            url.style.color = ColorToken.Gray500;
-            url.style.maxWidth = '100%';
-            url.style.overflow = 'hidden';
-            url.style.textOverflow = 'ellipsis';
-            url.style.whiteSpace = 'nowrap';
-            url.style.padding = '0 4px';
-
-            placeholder.appendChild(dimensions);
-            placeholder.appendChild(url);
-            placeholder.title = `${dimensionsLabel} · ${rawSrc || '(no src)'}`;
-        } else {
-            placeholder.innerHTML = '';
-            placeholder.title = `${dimensionsLabel} · ${rawSrc || '(no src)'}`;
+        if (!size.showLabel) {
+            return;
         }
+
+        tracked.labelContainer.style.display = 'flex';
+        tracked.labelContainer.style.flexDirection = 'column';
+        tracked.labelContainer.style.alignItems = 'center';
+        tracked.labelContainer.style.gap = '2px';
+        tracked.labelContainer.style.maxWidth = '100%';
+        tracked.labelContainer.style.overflow = 'hidden';
+
+        const dimensions = document.createElement('span');
+        dimensions.textContent = dimensionsLabel;
+        dimensions.style.fontWeight = String(FontWeight.Semibold);
+        dimensions.style.color = ColorToken.Gray700;
+
+        const url = document.createElement('span');
+        url.textContent = truncated;
+        url.style.fontSize = FontSize.Xs;
+        url.style.color = ColorToken.Gray500;
+        url.style.maxWidth = '100%';
+        url.style.overflow = 'hidden';
+        url.style.textOverflow = 'ellipsis';
+        url.style.whiteSpace = 'nowrap';
+        url.style.padding = '0 4px';
+
+        tracked.labelContainer.appendChild(dimensions);
+        tracked.labelContainer.appendChild(url);
     }
 
     // ---------- CSP fallback ----------
