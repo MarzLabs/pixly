@@ -7,6 +7,7 @@ import { ToolId, type ToolIdValue } from '@/shared/constants/tools';
 import { MessageType, type PixlyMessage } from '@/shared/types/messages';
 import { registerMessageListener } from '@/shared/messaging';
 import { loadSettings } from '@/shared/utils/storage';
+import { loadActiveToolsForOrigin, saveActiveToolsForOrigin, isSessionRestorableTool } from '@/shared/utils/active-tools';
 import { matchesEvent } from '@/shared/utils/shortcuts';
 import type { UserSettings } from '@/shared/types/settings';
 import { createToolRegistry, type RegistryEntry } from './tool-registry';
@@ -50,6 +51,7 @@ class PixlyController {
         this.registerListeners();
         this.bindKeyboardShortcuts();
         await this.restoreOverlayIfPersisted();
+        await this.restoreActiveToolsIfPersisted();
     }
 
     // Open a long-lived port to the service worker. When the extension is
@@ -134,6 +136,26 @@ class PixlyController {
         }
     }
 
+    // Re-activate the ambient tools the user had enabled for this origin before
+    // a reload. The set is session-scoped (cleared when the browser closes) and
+    // already filtered to restorable tools by loadActiveToolsForOrigin.
+    private async restoreActiveToolsIfPersisted(): Promise<void> {
+        try {
+            const toolIds = await loadActiveToolsForOrigin(window.location.origin);
+
+            // Re-check after the async gap: shutdown() may have run meanwhile.
+            if (this.isShutdown) {
+                return;
+            }
+
+            for (const toolId of toolIds) {
+                this.ensureToolActive(toolId);
+            }
+        } catch (error) {
+            console.warn('[Pixly] could not restore active tools:', error);
+        }
+    }
+
     private registerListeners(): void {
         registerMessageListener(async (message: PixlyMessage) => {
             if (this.isShutdown) {
@@ -155,6 +177,7 @@ class PixlyController {
                     };
                 case MessageType.DisableAllTools:
                     this.disableAll();
+                    this.persistActiveTools();
                     break;
                 case MessageType.UpdateSettings:
                     this.settings = message.payload.settings;
@@ -205,6 +228,21 @@ class PixlyController {
         } else {
             this.ensureToolInactive(toolId);
         }
+
+        this.persistActiveTools();
+    }
+
+    // Persist the per-origin set of active ambient tools so a reload can restore
+    // them. Non-restorable tools are filtered out by saveActiveToolsForOrigin.
+    // Deliberately NOT called from shutdown(): that teardown runs on extension
+    // reload/update, and wiping the memory there would defeat the feature.
+    private persistActiveTools(): void {
+        if (this.isShutdown) {
+            return;
+        }
+
+        const restorable = Array.from(this.activeTools).filter(isSessionRestorableTool);
+        void saveActiveToolsForOrigin(window.location.origin, restorable);
     }
 
     private ensureToolActive(toolId: ToolIdValue): void {
@@ -320,6 +358,7 @@ class PixlyController {
         }
 
         this.disableAll();
+        this.persistActiveTools();
     }
 
     private handleCommand(command: string): void {

@@ -57,3 +57,17 @@ export const STAGE_2_TOOLS: ToolIdValue[] = [
     ToolId.ImageOverlay,
     ToolId.Snapshot,
 ];
+
+// Tools whose active state is remembered per-origin and restored on reload
+// (session scoped, cleared when the browser closes). Limited to ambient
+// overlays that annotate the page passively; one-shot or modal tools
+// (snapshot, color picker, magnifier, …) are intentionally excluded because
+// auto-activating them on load would be surprising rather than helpful.
+export const SESSION_RESTORABLE_TOOLS: ToolIdValue[] = [
+    ToolId.BrokenImages,
+    ToolId.GridOverlay,
+    ToolId.GlobalOutlines,
+    ToolId.Rulers,
+    ToolId.Typography,
+    ToolId.FreeGuides,
+];

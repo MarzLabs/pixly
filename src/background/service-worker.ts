@@ -9,6 +9,15 @@ const SNAPSHOT_IMAGE_QUALITY = 100;
 // Port name must match the constant in content-script.ts.
 const RUNTIME_PORT_NAME = 'pixly-content-script';
 
+// chrome.storage.session defaults to TRUSTED_CONTEXTS, which excludes content
+// scripts. The content script needs to read/write the per-origin active-tools
+// memory, so widen the access level once at service-worker startup.
+chrome.storage.session
+    .setAccessLevel({ accessLevel: 'TRUSTED_AND_UNTRUSTED_CONTEXTS' })
+    .catch((error: unknown) => {
+        console.warn('[Pixly] could not widen session storage access level:', error);
+    });
+
 // Accept ports opened by content scripts so the port stays alive for the
 // lifetime of the tab. Chrome only fires onDisconnect on the content-script
 // side when the service worker is torn down (extension reload / update), which
