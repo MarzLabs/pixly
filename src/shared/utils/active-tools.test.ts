@@ -34,14 +34,14 @@ describe('active-tools session storage', () => {
     });
 
     it('persists only restorable tools under the origin key', async () => {
-        // Act — mix restorable and non-restorable tools.
+        // Act — mix restorable tools with an excluded one (Snapshot).
         await saveActiveToolsForOrigin(ORIGIN_A, [
             ToolId.BrokenImages,
-            ToolId.Magnifier,
+            ToolId.Snapshot,
             ToolId.GridOverlay,
         ]);
 
-        // Assert
+        // Assert — Snapshot is dropped, the rest are kept in order.
         expect(store[KEY]).toEqual({ [ORIGIN_A]: [ToolId.BrokenImages, ToolId.GridOverlay] });
     });
 
@@ -71,18 +71,22 @@ describe('active-tools session storage', () => {
         // Arrange
         store[KEY] = { [ORIGIN_A]: [ToolId.BrokenImages], [ORIGIN_B]: [ToolId.Rulers] };
 
-        // Act — only non-restorable tools remain active for ORIGIN_A.
-        await saveActiveToolsForOrigin(ORIGIN_A, [ToolId.Magnifier, ToolId.Snapshot]);
+        // Act — only excluded tools remain active for ORIGIN_A.
+        await saveActiveToolsForOrigin(ORIGIN_A, [ToolId.ImageOverlay, ToolId.Snapshot]);
 
         // Assert — ORIGIN_A is dropped, ORIGIN_B is untouched.
         expect(store[KEY]).toEqual({ [ORIGIN_B]: [ToolId.Rulers] });
     });
 
-    it('classifies ambient tools as restorable and modal tools as not', () => {
-        // Assert
+    it('remembers almost every tool, excluding only the special cases', () => {
+        // Assert — most tools are restorable, including interactive modes.
         expect(isSessionRestorableTool(ToolId.BrokenImages)).toBe(true);
-        expect(isSessionRestorableTool(ToolId.GridOverlay)).toBe(true);
+        expect(isSessionRestorableTool(ToolId.Inspector)).toBe(true);
+        expect(isSessionRestorableTool(ToolId.ColorPicker)).toBe(true);
+        expect(isSessionRestorableTool(ToolId.Magnifier)).toBe(true);
+
+        // Excluded: own-persistence overlay and the one-shot snapshot action.
+        expect(isSessionRestorableTool(ToolId.ImageOverlay)).toBe(false);
         expect(isSessionRestorableTool(ToolId.Snapshot)).toBe(false);
-        expect(isSessionRestorableTool(ToolId.ColorPicker)).toBe(false);
     });
 });

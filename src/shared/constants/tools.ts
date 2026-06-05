@@ -58,16 +58,20 @@ export const STAGE_2_TOOLS: ToolIdValue[] = [
     ToolId.Snapshot,
 ];
 
-// Tools whose active state is remembered per-origin and restored on reload
-// (session scoped, cleared when the browser closes). Limited to ambient
-// overlays that annotate the page passively; one-shot or modal tools
-// (snapshot, color picker, magnifier, …) are intentionally excluded because
-// auto-activating them on load would be surprising rather than helpful.
-export const SESSION_RESTORABLE_TOOLS: ToolIdValue[] = [
-    ToolId.BrokenImages,
-    ToolId.GridOverlay,
-    ToolId.GlobalOutlines,
-    ToolId.Rulers,
-    ToolId.Typography,
-    ToolId.FreeGuides,
+// Tools that are NOT remembered across reloads. Every other tool is restored
+// per-origin (session scoped, cleared when the browser closes). Only genuine
+// special cases are excluded:
+// - ImageOverlay restores through its own persistence (image, position, size
+//   and lock state), so remembering it here too would double-activate it.
+// - Snapshot is a one-shot capture/compare action, not a persistent mode;
+//   restoring its "on" state would do nothing useful.
+export const SESSION_NON_RESTORABLE_TOOLS: ToolIdValue[] = [
+    ToolId.ImageOverlay,
+    ToolId.Snapshot,
 ];
+
+// Almost every tool is remembered per-origin and re-activated on reload; the
+// special cases above are the only exclusions.
+export const SESSION_RESTORABLE_TOOLS: ToolIdValue[] = Object.values(ToolId).filter(
+    (toolId) => !SESSION_NON_RESTORABLE_TOOLS.includes(toolId),
+);

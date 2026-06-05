@@ -41,6 +41,9 @@ class PixlyController {
     private readonly colorApplier = new ColorApplierTool();
     private colorApplierActive = false;
     private isShutdown = false;
+    // True only while re-activating persisted tools on load, so their enable()
+    // side effects (e.g. distance meter's onboarding toast) stay silent.
+    private isRestoring = false;
     private contextPollTimer: ReturnType<typeof setInterval> | null = null;
     private readonly handleKeyDown = this.onKeyDown.bind(this);
 
@@ -148,8 +151,14 @@ class PixlyController {
                 return;
             }
 
-            for (const toolId of toolIds) {
-                this.ensureToolActive(toolId);
+            this.isRestoring = true;
+
+            try {
+                for (const toolId of toolIds) {
+                    this.ensureToolActive(toolId);
+                }
+            } finally {
+                this.isRestoring = false;
             }
         } catch (error) {
             console.warn('[Pixly] could not restore active tools:', error);
@@ -298,7 +307,15 @@ class PixlyController {
             get settings() {
                 return controller.settings ?? (() => { throw new Error('Settings not loaded.'); })();
             },
-            showNotification,
+            showNotification(message: string): void {
+                // Stay silent while restoring persisted tools so a reload does
+                // not replay every tool's onboarding/notification toast.
+                if (controller.isRestoring) {
+                    return;
+                }
+
+                showNotification(message);
+            },
             onSettingsChange(handler) {
                 controller.settingsListeners.add(handler);
 
