@@ -3,6 +3,16 @@ import { tokensToCssVariables } from '@shared/constants/design-tokens';
 import shadowStyles from './shadow-ui.css?inline';
 
 /**
+ * The host carries NO z-index on purpose: a z-index there forms a stacking context that would
+ * isolate the overlay's mix-blend-mode from the page, leaving blend modes with nothing to blend
+ * against. Each top-level UI node gets its own z-index instead — the toolbar one level above the
+ * overlay so its controls stay clickable.
+ */
+const TOOLBAR_ABOVE_OVERLAY = 1;
+const TOOLBAR_Z_INDEX = PIXLY_MAX_Z_INDEX;
+const OVERLAY_Z_INDEX = PIXLY_MAX_Z_INDEX - TOOLBAR_ABOVE_OVERLAY;
+
+/**
  * Owns the single host element + Shadow DOM that contains ALL Pixly UI (toolbar, overlay, controls)
  * per RF-CORE-2. The host is document-anchored, zero-size, and pointer-transparent by default so the
  * page stays fully interactive; individual UI nodes re-enable pointer events on themselves.
@@ -31,19 +41,23 @@ export class ShadowHost {
 
     // Absolute (not fixed) so document-anchored overlays scroll natively with the page; the toolbar
     // and any viewport-pinned overlay use their own `position: fixed`. Zero-size so the host never
-    // affects page layout, and pointer-transparent so clicks meant for the page pass through.
+    // affects page layout, and pointer-transparent so clicks meant for the page pass through. No
+    // z-index here on purpose (see TOOLBAR_Z_INDEX/OVERLAY_Z_INDEX above).
     host.style.position = 'absolute';
     host.style.top = '0';
     host.style.left = '0';
     host.style.width = '0';
     host.style.height = '0';
-    host.style.zIndex = String(PIXLY_MAX_Z_INDEX);
     host.style.pointerEvents = 'none';
 
     const root = host.attachShadow({ mode: 'open' });
 
     const styleEl = document.createElement('style');
-    styleEl.textContent = `:host {\n  ${tokensToCssVariables()}\n}\n${shadowStyles}`;
+    styleEl.textContent =
+      `:host {\n  ${tokensToCssVariables()}\n` +
+      `  --pixly-z-toolbar: ${TOOLBAR_Z_INDEX};\n` +
+      `  --pixly-z-overlay: ${OVERLAY_Z_INDEX};\n}\n` +
+      shadowStyles;
     root.appendChild(styleEl);
 
     const layer = document.createElement('div');

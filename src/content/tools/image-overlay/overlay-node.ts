@@ -164,7 +164,10 @@ export class OverlayNode {
     this.applyGeometry();
 
     this.image.style.opacity = String(this.state.opacity);
-    this.image.style.mixBlendMode = this.state.blendMode;
+    // Blend on the root (not the image): mix-blend-mode only blends against the backdrop of its
+    // parent stacking context, and the image sits inside the overlay's own transform stacking
+    // context. Putting it on the root lets the overlay actually blend with the page content.
+    this.root.style.mixBlendMode = this.state.blendMode;
 
     this.root.classList.toggle('pixly-overlay--locked', this.state.locked);
     this.root.classList.toggle('pixly-overlay--hidden', this.state.hidden);
