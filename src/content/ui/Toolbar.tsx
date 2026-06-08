@@ -19,6 +19,10 @@ interface ToolbarProps {
 const INITIAL_TOP_PX = 16;
 const INITIAL_RIGHT_PX = 16;
 
+// Header controls (e.g. the collapse button) must not start a drag: capturing the pointer here
+// would retarget the click to the header and the button's onClick would never fire.
+const INTERACTIVE_SELECTOR = 'button, input, select, textarea, a';
+
 export function Toolbar({ activeTools, refreshNonce }: ToolbarProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
@@ -39,6 +43,12 @@ export function Toolbar({ activeTools, refreshNonce }: ToolbarProps) {
 
     const onPointerDown = (event: PointerEvent): void => {
       if (event.button !== 0) {
+        return;
+      }
+
+      const target = event.target as Element | null;
+
+      if (target?.closest(INTERACTIVE_SELECTOR)) {
         return;
       }
 
