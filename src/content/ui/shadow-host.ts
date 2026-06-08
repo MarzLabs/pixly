@@ -4,8 +4,8 @@ import shadowStyles from './shadow-ui.css?inline';
 
 /**
  * Owns the single host element + Shadow DOM that contains ALL Pixly UI (toolbar, overlay, controls)
- * per RF-CORE-2. The host is fixed, full-viewport, and pointer-transparent by default so the page
- * stays fully interactive; individual UI nodes re-enable pointer events on themselves.
+ * per RF-CORE-2. The host is document-anchored, zero-size, and pointer-transparent by default so the
+ * page stays fully interactive; individual UI nodes re-enable pointer events on themselves.
  */
 export class ShadowHost {
   private hostElement: HTMLDivElement | null = null;
@@ -29,9 +29,14 @@ export class ShadowHost {
     const host = document.createElement('div');
     host.id = SHADOW_HOST_ID;
 
-    // The host itself must never affect page layout or capture clicks meant for the page.
-    host.style.position = 'fixed';
-    host.style.inset = '0';
+    // Absolute (not fixed) so document-anchored overlays scroll natively with the page; the toolbar
+    // and any viewport-pinned overlay use their own `position: fixed`. Zero-size so the host never
+    // affects page layout, and pointer-transparent so clicks meant for the page pass through.
+    host.style.position = 'absolute';
+    host.style.top = '0';
+    host.style.left = '0';
+    host.style.width = '0';
+    host.style.height = '0';
     host.style.zIndex = String(PIXLY_MAX_Z_INDEX);
     host.style.pointerEvents = 'none';
 

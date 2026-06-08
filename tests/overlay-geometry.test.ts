@@ -13,6 +13,7 @@ import {
   MIN_SCALE,
   NUDGE_LARGE_STEP_PX,
   NUDGE_STEP_PX,
+  reanchorOffset,
   renderedSize,
 } from '@content/tools/image-overlay/overlay-geometry';
 
@@ -82,6 +83,38 @@ describe('overlay geometry', () => {
     expect(state.offsetX).toBe(0);
     expect(state.offsetY).toBe(0);
     expect(state.locked).toBe(false);
+    expect(state.pinnedToViewport).toBe(false);
+  });
+});
+
+describe('reanchorOffset', () => {
+  it('subtracts the scroll position when switching to viewport-pinned', () => {
+    // Arrange / Act: a document offset of 1000 while scrolled 800 sits 200px below the viewport top.
+    const result = reanchorOffset(40, 1000, 0, 800, true);
+
+    // Assert.
+    expect(result).toEqual({ offsetX: 40, offsetY: 200 });
+  });
+
+  it('adds the scroll position when switching to document-anchored', () => {
+    // Arrange / Act: a viewport offset of 200 while scrolled 800 maps to document offset 1000.
+    const result = reanchorOffset(40, 200, 0, 800, false);
+
+    // Assert.
+    expect(result).toEqual({ offsetX: 40, offsetY: 1000 });
+  });
+
+  it('round-trips back to the original offset', () => {
+    // Arrange.
+    const scrollX = 120;
+    const scrollY = 640;
+
+    // Act: pin then unpin.
+    const pinned = reanchorOffset(300, 900, scrollX, scrollY, true);
+    const restored = reanchorOffset(pinned.offsetX, pinned.offsetY, scrollX, scrollY, false);
+
+    // Assert.
+    expect(restored).toEqual({ offsetX: 300, offsetY: 900 });
   });
 });
 

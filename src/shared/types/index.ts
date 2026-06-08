@@ -36,6 +36,8 @@ export interface OverlayState {
   locked: boolean;
   /** Hidden overlays keep their config but are not painted. */
   hidden: boolean;
+  /** When true the overlay is pinned to the viewport; otherwise it scrolls with the page. */
+  pinnedToViewport: boolean;
 }
 
 /** Persisted state of the Fix Broken Images tool. */

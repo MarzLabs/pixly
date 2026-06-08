@@ -24,7 +24,25 @@ export function createDefaultOverlayState(): OverlayState {
     scale: 1,
     locked: false,
     hidden: false,
+    pinnedToViewport: false,
   };
+}
+
+/**
+ * Re-expresses the overlay offset when toggling between document-anchored (scrolls with the page)
+ * and viewport-pinned positioning, so the overlay stays visually in place across the switch.
+ * A document offset equals the viewport offset plus the current scroll position.
+ */
+export function reanchorOffset(
+  offsetX: number,
+  offsetY: number,
+  scrollX: number,
+  scrollY: number,
+  toPinned: boolean,
+): { offsetX: number; offsetY: number } {
+  const sign = toPinned ? -1 : 1;
+
+  return { offsetX: offsetX + sign * scrollX, offsetY: offsetY + sign * scrollY };
 }
 
 export function clamp(value: number, min: number, max: number): number {

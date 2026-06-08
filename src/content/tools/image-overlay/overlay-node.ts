@@ -88,6 +88,12 @@ export class OverlayNode {
       },
       () => ({ offsetX: this.state.offsetX, offsetY: this.state.offsetY, scale: this.state.scale }),
       () => ({ width: this.naturalWidth, height: this.naturalHeight }),
+      // Document-anchored overlays store offsets in document space, so the viewport pointer must be
+      // shifted by the scroll position to stay in the same space; pinned overlays need no shift.
+      () =>
+        this.state.pinnedToViewport
+          ? { x: 0, y: 0 }
+          : { x: window.scrollX, y: window.scrollY },
     );
 
     this.createHandles();
@@ -162,6 +168,7 @@ export class OverlayNode {
 
     this.root.classList.toggle('pixly-overlay--locked', this.state.locked);
     this.root.classList.toggle('pixly-overlay--hidden', this.state.hidden);
+    this.root.classList.toggle('pixly-overlay--pinned', this.state.pinnedToViewport);
   }
 
   /** Applies both position and size from the committed state. */

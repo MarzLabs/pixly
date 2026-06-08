@@ -18,6 +18,7 @@ import {
   MAX_SCALE,
   MIN_OPACITY,
   MIN_SCALE,
+  reanchorOffset,
 } from './overlay-geometry';
 import {
   extractImageFile,
@@ -243,10 +244,10 @@ export class ImageOverlayTool implements Tool<'image-overlay'> {
   }
 
   private renderToggleRow() {
-    return h('div', { key: 'toggles', className: 'pixly-control__row' }, [
+    return h('div', { key: 'toggles', className: 'pixly-toggle-row' }, [
       h(
         'label',
-        { key: 'lock', className: 'pixly-toggle' },
+        { key: 'lock', className: 'pixly-toggle', title: 'Let clicks pass through to the page' },
         [
           h('input', {
             key: 'i',
@@ -272,6 +273,23 @@ export class ImageOverlayTool implements Tool<'image-overlay'> {
           h('span', { key: 't' }, 'Hide'),
         ],
       ),
+      h(
+        'label',
+        {
+          key: 'pin',
+          className: 'pixly-toggle',
+          title: 'Pin to the screen instead of scrolling with the page',
+        },
+        [
+          h('input', {
+            key: 'i',
+            type: 'checkbox',
+            checked: this.state.pinnedToViewport,
+            onChange: (event: Event) => this.setPinned((event.target as HTMLInputElement).checked),
+          }),
+          h('span', { key: 't' }, 'Pin to viewport'),
+        ],
+      ),
     ]);
   }
 
@@ -295,6 +313,23 @@ export class ImageOverlayTool implements Tool<'image-overlay'> {
     this.overlayNode?.update(this.state);
     this.context?.persistState();
     this.context?.requestControlsRefresh();
+  }
+
+  /** Switches the scroll anchoring, re-expressing the offset so the overlay stays visually in place. */
+  private setPinned(pinned: boolean): void {
+    const reanchored = reanchorOffset(
+      this.state.offsetX,
+      this.state.offsetY,
+      window.scrollX,
+      window.scrollY,
+      pinned,
+    );
+
+    this.updateState({
+      pinnedToViewport: pinned,
+      offsetX: reanchored.offsetX,
+      offsetY: reanchored.offsetY,
+    });
   }
 
   private openFilePicker(): void {

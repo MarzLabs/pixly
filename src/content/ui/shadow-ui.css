@@ -155,6 +155,14 @@
   color: var(--pixly-color-danger);
 }
 
+.pixly-toggle-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pixly-spacing-sm) var(--pixly-spacing-md);
+  align-items: center;
+  margin-bottom: var(--pixly-spacing-md);
+}
+
 .pixly-toggle {
   display: inline-flex;
   align-items: center;
@@ -190,7 +198,8 @@
 /* ---- Image overlay node ---- */
 .pixly-overlay {
   --pixly-handle-size: 12px;
-  position: fixed;
+  /* Absolute by default so the overlay scrolls with the page (document-anchored). */
+  position: absolute;
   top: 0;
   left: 0;
   pointer-events: auto;
@@ -198,6 +207,11 @@
   will-change: transform;
   cursor: move;
   user-select: none;
+}
+
+/* Pinned overlays stay fixed to the viewport regardless of page scroll. */
+.pixly-overlay--pinned {
+  position: fixed;
 }
 
 /* Only outline on hover so the box stays invisible during pixel-perfect comparison. */

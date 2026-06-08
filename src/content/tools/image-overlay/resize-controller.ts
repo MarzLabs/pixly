@@ -40,6 +40,8 @@ export class ResizeController {
     private readonly getState: () => { offsetX: number; offsetY: number; scale: number },
     /** Reads the image's natural size; the gesture is a no-op until the image has loaded. */
     private readonly getNaturalSize: () => { width: number; height: number },
+    /** Reads the offset to add to the viewport pointer so it matches the overlay's coordinate space. */
+    private readonly getScroll: () => { x: number; y: number },
   ) {}
 
   /** Registers a corner handle and starts listening on it. */
@@ -104,6 +106,7 @@ export class ResizeController {
     }
 
     const natural = this.getNaturalSize();
+    const scroll = this.getScroll();
 
     this.latest = computeUniformResize({
       corner: this.activeCorner,
@@ -112,8 +115,8 @@ export class ResizeController {
       startOffsetX: this.startOffsetX,
       startOffsetY: this.startOffsetY,
       startScale: this.startScale,
-      pointerX: event.clientX,
-      pointerY: event.clientY,
+      pointerX: event.clientX + scroll.x,
+      pointerY: event.clientY + scroll.y,
     });
 
     this.scheduleFrame();
