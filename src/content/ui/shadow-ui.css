@@ -1,0 +1,216 @@
+/* All Pixly in-page UI styles. Scoped to the Shadow DOM, so nothing leaks to the page (RF-CORE-2). */
+
+.pixly-layer {
+  font-family: var(--pixly-font-family);
+  font-size: var(--pixly-font-size-md);
+  color: var(--pixly-color-text);
+}
+
+/* The layer spans the viewport but does not capture pointer events; children opt back in. */
+.pixly-layer,
+.pixly-layer * {
+  box-sizing: border-box;
+}
+
+/* ---- Floating toolbar ---- */
+.pixly-toolbar {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  width: 320px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--pixly-color-surface);
+  border: 1px solid var(--pixly-color-border);
+  border-radius: var(--pixly-radius-medium);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  pointer-events: auto;
+  overflow: hidden;
+}
+
+.pixly-toolbar__header {
+  display: flex;
+  align-items: center;
+  gap: var(--pixly-spacing-sm);
+  padding: var(--pixly-spacing-sm) var(--pixly-spacing-md);
+  background: var(--pixly-color-surface-raised);
+  border-bottom: 1px solid var(--pixly-color-border);
+  cursor: grab;
+  user-select: none;
+}
+
+.pixly-toolbar__header:active {
+  cursor: grabbing;
+}
+
+.pixly-toolbar__title {
+  font-weight: 600;
+  font-size: var(--pixly-font-size-lg);
+  color: var(--pixly-color-brand);
+  flex: 1;
+}
+
+.pixly-toolbar__body {
+  padding: var(--pixly-spacing-md);
+  overflow-y: auto;
+}
+
+.pixly-toolbar__section + .pixly-toolbar__section {
+  margin-top: var(--pixly-spacing-lg);
+  padding-top: var(--pixly-spacing-md);
+  border-top: 1px solid var(--pixly-color-border);
+}
+
+.pixly-toolbar__section-title {
+  font-size: var(--pixly-font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--pixly-color-text-muted);
+  margin: 0 0 var(--pixly-spacing-sm);
+}
+
+.pixly-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--pixly-color-border);
+  border-radius: var(--pixly-radius-small);
+  background: transparent;
+  color: var(--pixly-color-text);
+  cursor: pointer;
+  padding: 0;
+}
+
+.pixly-iconbtn:hover {
+  background: var(--pixly-color-surface-raised);
+}
+
+/* ---- Controls ---- */
+.pixly-control {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pixly-spacing-xs);
+  margin-bottom: var(--pixly-spacing-md);
+}
+
+.pixly-control__label {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--pixly-font-size-sm);
+  color: var(--pixly-color-text-muted);
+}
+
+.pixly-control__row {
+  display: flex;
+  gap: var(--pixly-spacing-sm);
+  align-items: center;
+}
+
+.pixly-control input[type='range'] {
+  width: 100%;
+  accent-color: var(--pixly-color-brand);
+}
+
+.pixly-control input[type='number'],
+.pixly-control select {
+  width: 100%;
+  padding: 6px 8px;
+  background: var(--pixly-color-surface-raised);
+  border: 1px solid var(--pixly-color-border);
+  border-radius: var(--pixly-radius-small);
+  color: var(--pixly-color-text);
+  font-size: var(--pixly-font-size-md);
+}
+
+.pixly-btn {
+  padding: 7px 12px;
+  border: 1px solid var(--pixly-color-border);
+  border-radius: var(--pixly-radius-small);
+  background: var(--pixly-color-surface-raised);
+  color: var(--pixly-color-text);
+  font-size: var(--pixly-font-size-md);
+  cursor: pointer;
+}
+
+.pixly-btn:hover {
+  border-color: var(--pixly-color-brand);
+}
+
+.pixly-btn--primary {
+  background: var(--pixly-color-brand);
+  border-color: var(--pixly-color-brand);
+  color: #1a1a1a;
+  font-weight: 600;
+}
+
+.pixly-btn--primary:hover {
+  background: var(--pixly-color-brand-hover);
+}
+
+.pixly-btn--danger {
+  border-color: var(--pixly-color-danger);
+  color: var(--pixly-color-danger);
+}
+
+.pixly-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pixly-spacing-sm);
+  cursor: pointer;
+}
+
+.pixly-feedback {
+  font-size: var(--pixly-font-size-sm);
+  color: var(--pixly-color-success);
+  min-height: 16px;
+}
+
+.pixly-feedback--error {
+  color: var(--pixly-color-danger);
+}
+
+.pixly-dropzone {
+  border: 1px dashed var(--pixly-color-border);
+  border-radius: var(--pixly-radius-small);
+  padding: var(--pixly-spacing-lg);
+  text-align: center;
+  color: var(--pixly-color-text-muted);
+  font-size: var(--pixly-font-size-sm);
+  cursor: pointer;
+}
+
+.pixly-dropzone--active {
+  border-color: var(--pixly-color-brand);
+  color: var(--pixly-color-brand);
+}
+
+/* ---- Image overlay node ---- */
+.pixly-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: auto;
+  touch-action: none;
+  will-change: transform;
+  cursor: move;
+  user-select: none;
+}
+
+.pixly-overlay--locked {
+  pointer-events: none;
+  cursor: default;
+}
+
+.pixly-overlay--hidden {
+  display: none;
+}
+
+.pixly-overlay img {
+  display: block;
+  max-width: none;
+  -webkit-user-drag: none;
+  user-drag: none;
+}
