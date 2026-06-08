@@ -1,24 +1,43 @@
 import type { OverlayState } from '@shared/types';
 import { DragController } from './drag-controller';
-import { arrowKeyToDirection, applyNudge, buildTransform } from './overlay-geometry';
+import { ResizeController } from './resize-controller';
+import type { OverlayTransform } from './overlay-geometry';
+import {
+  applyNudge,
+  arrowKeyToDirection,
+  buildTransform,
+  renderedSize,
+  RESIZE_CORNERS,
+} from './overlay-geometry';
 
 /**
  * Owns the actual overlay DOM node inside the Shadow DOM (spec §7.4). All visual state is applied
  * imperatively here — Preact is never used for the overlay element, only for the control panel — so
- * the drag stays a direct Pointer Events interaction (RF-OVL-1).
+ * the drag/resize stay direct Pointer Events interactions (RF-OVL-1).
+ *
+ * The overlay is sized in pixels (natural size × scale) rather than via a CSS `scale()` transform, so
+ * the corner resize handles keep a constant on-screen size at any scale factor.
  */
 
+const HANDLE_BASE_CLASS = 'pixly-overlay__handle';
+const HANDLE_SELECTOR = `.${HANDLE_BASE_CLASS}`;
+
 export interface OverlayNodeCallbacks {
-  /** Called when an interaction commits a new offset (drag end / keyboard nudge) → persist. */
+  /** Called when a move interaction commits a new offset (drag end / keyboard nudge) → persist. */
   onOffsetCommit: (offsetX: number, offsetY: number) => void;
+  /** Called when a corner-resize gesture commits a new scale and offset → persist + refresh UI. */
+  onResizeCommit: (scale: number, offsetX: number, offsetY: number) => void;
 }
 
 export class OverlayNode {
   private readonly root: HTMLDivElement;
   private readonly image: HTMLImageElement;
   private readonly drag: DragController;
+  private readonly resize: ResizeController;
   private readonly callbacks: OverlayNodeCallbacks;
   private state: OverlayState;
+  private naturalWidth = 0;
+  private naturalHeight = 0;
   private objectUrl: string | null = null;
   private readonly onKeyDown = (event: KeyboardEvent): void => this.handleKeyDown(event);
 
@@ -33,6 +52,7 @@ export class OverlayNode {
     this.image = document.createElement('img');
     this.image.alt = '';
     this.image.draggable = false;
+    this.image.onload = (): void => this.handleImageLoad();
     this.root.appendChild(this.image);
 
     parent.appendChild(this.root);
@@ -40,16 +60,37 @@ export class OverlayNode {
     this.drag = new DragController(
       this.root,
       {
-        onPreview: (x, y) => this.applyTransform(x, y, this.state.scale),
+        onPreview: (x, y) => this.previewPosition(x, y),
         onCommit: (x, y) => {
           this.state = { ...this.state, offsetX: x, offsetY: y };
-          this.applyTransform(x, y, this.state.scale);
+          this.applyGeometry();
           this.callbacks.onOffsetCommit(x, y);
         },
       },
       () => ({ offsetX: this.state.offsetX, offsetY: this.state.offsetY }),
+      // A press on a resize handle must not also start a move drag of the whole overlay.
+      HANDLE_SELECTOR,
     );
 
+    this.resize = new ResizeController(
+      {
+        onPreview: (transform) => this.previewGeometry(transform),
+        onCommit: (transform) => {
+          this.state = {
+            ...this.state,
+            scale: transform.scale,
+            offsetX: transform.offsetX,
+            offsetY: transform.offsetY,
+          };
+          this.applyGeometry();
+          this.callbacks.onResizeCommit(transform.scale, transform.offsetX, transform.offsetY);
+        },
+      },
+      () => ({ offsetX: this.state.offsetX, offsetY: this.state.offsetY, scale: this.state.scale }),
+      () => ({ width: this.naturalWidth, height: this.naturalHeight }),
+    );
+
+    this.createHandles();
     this.drag.attach();
     this.root.addEventListener('keydown', this.onKeyDown);
 
@@ -76,8 +117,18 @@ export class OverlayNode {
     return { ...this.state };
   }
 
+  /** Natural pixel size of the loaded image, or null while no image has loaded yet. */
+  getNaturalSize(): { width: number; height: number } | null {
+    if (this.naturalWidth === 0 || this.naturalHeight === 0) {
+      return null;
+    }
+
+    return { width: this.naturalWidth, height: this.naturalHeight };
+  }
+
   destroy(): void {
     this.drag.detach();
+    this.resize.detach();
     this.root.removeEventListener('keydown', this.onKeyDown);
 
     if (this.objectUrl) {
@@ -88,8 +139,23 @@ export class OverlayNode {
     this.root.remove();
   }
 
+  private createHandles(): void {
+    for (const corner of RESIZE_CORNERS) {
+      const handle = document.createElement('div');
+      handle.className = `${HANDLE_BASE_CLASS} ${HANDLE_BASE_CLASS}--${corner}`;
+      this.root.appendChild(handle);
+      this.resize.addHandle(handle, corner);
+    }
+  }
+
+  private handleImageLoad(): void {
+    this.naturalWidth = this.image.naturalWidth;
+    this.naturalHeight = this.image.naturalHeight;
+    this.applyGeometry();
+  }
+
   private render(): void {
-    this.applyTransform(this.state.offsetX, this.state.offsetY, this.state.scale);
+    this.applyGeometry();
 
     this.image.style.opacity = String(this.state.opacity);
     this.image.style.mixBlendMode = this.state.blendMode;
@@ -98,8 +164,31 @@ export class OverlayNode {
     this.root.classList.toggle('pixly-overlay--hidden', this.state.hidden);
   }
 
-  private applyTransform(offsetX: number, offsetY: number, scale: number): void {
-    this.root.style.transform = buildTransform(offsetX, offsetY, scale);
+  /** Applies both position and size from the committed state. */
+  private applyGeometry(): void {
+    this.root.style.transform = buildTransform(this.state.offsetX, this.state.offsetY);
+    this.applySize(this.state.scale);
+  }
+
+  /** Live position-only update during a move drag (size is unchanged, so it is left alone). */
+  private previewPosition(offsetX: number, offsetY: number): void {
+    this.root.style.transform = buildTransform(offsetX, offsetY);
+  }
+
+  /** Live position + size update during a resize gesture. */
+  private previewGeometry(transform: OverlayTransform): void {
+    this.root.style.transform = buildTransform(transform.offsetX, transform.offsetY);
+    this.applySize(transform.scale);
+  }
+
+  private applySize(scale: number): void {
+    if (this.naturalWidth === 0 || this.naturalHeight === 0) {
+      return;
+    }
+
+    const { width, height } = renderedSize(this.naturalWidth, this.naturalHeight, scale);
+    this.root.style.width = `${width}px`;
+    this.root.style.height = `${height}px`;
   }
 
   private handleKeyDown(event: KeyboardEvent): void {
@@ -115,7 +204,7 @@ export class OverlayNode {
     const next = applyNudge(this.state.offsetX, this.state.offsetY, direction, event.shiftKey);
 
     this.state = { ...this.state, offsetX: next.offsetX, offsetY: next.offsetY };
-    this.applyTransform(next.offsetX, next.offsetY, this.state.scale);
+    this.previewPosition(next.offsetX, next.offsetY);
     this.callbacks.onOffsetCommit(next.offsetX, next.offsetY);
   }
 }

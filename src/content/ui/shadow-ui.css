@@ -189,6 +189,7 @@
 
 /* ---- Image overlay node ---- */
 .pixly-overlay {
+  --pixly-handle-size: 12px;
   position: fixed;
   top: 0;
   left: 0;
@@ -199,9 +200,18 @@
   user-select: none;
 }
 
+/* Only outline on hover so the box stays invisible during pixel-perfect comparison. */
+.pixly-overlay:hover {
+  outline: 1px dashed var(--pixly-color-brand);
+}
+
 .pixly-overlay--locked {
   pointer-events: none;
   cursor: default;
+}
+
+.pixly-overlay--locked .pixly-overlay__handle {
+  display: none;
 }
 
 .pixly-overlay--hidden {
@@ -210,7 +220,45 @@
 
 .pixly-overlay img {
   display: block;
+  width: 100%;
+  height: 100%;
   max-width: none;
   -webkit-user-drag: none;
   user-drag: none;
+}
+
+/* Corner resize handles (spec §7.3): constant on-screen size, centered on each corner. */
+.pixly-overlay__handle {
+  position: absolute;
+  width: var(--pixly-handle-size);
+  height: var(--pixly-handle-size);
+  background: var(--pixly-color-brand);
+  border: 2px solid #ffffff;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
+  z-index: 1;
+}
+
+.pixly-overlay__handle--nw {
+  top: calc(var(--pixly-handle-size) / -2);
+  left: calc(var(--pixly-handle-size) / -2);
+  cursor: nwse-resize;
+}
+
+.pixly-overlay__handle--ne {
+  top: calc(var(--pixly-handle-size) / -2);
+  right: calc(var(--pixly-handle-size) / -2);
+  cursor: nesw-resize;
+}
+
+.pixly-overlay__handle--sw {
+  bottom: calc(var(--pixly-handle-size) / -2);
+  left: calc(var(--pixly-handle-size) / -2);
+  cursor: nesw-resize;
+}
+
+.pixly-overlay__handle--se {
+  bottom: calc(var(--pixly-handle-size) / -2);
+  right: calc(var(--pixly-handle-size) / -2);
+  cursor: nwse-resize;
 }

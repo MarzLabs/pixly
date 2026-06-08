@@ -1,6 +1,6 @@
 {
   "name": "pixly",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Pixly — an extensible Chrome (MV3) toolset for visual web development: fix broken images and overlay design exports on real pages.",
   "type": "module",
   "private": true,

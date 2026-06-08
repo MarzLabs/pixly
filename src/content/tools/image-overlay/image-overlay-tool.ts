@@ -25,11 +25,13 @@ import {
   readImageBlob,
 } from './image-loader';
 
+/** Factor to turn a 0..1 scale factor into a UI percentage and back. */
+const PERCENT_FACTOR = 100;
 /** Slider granularity for opacity (0..100 in the UI). */
 const OPACITY_SLIDER_MAX = 100;
 /** Slider granularity for scale (percent). */
-const SCALE_SLIDER_MIN = MIN_SCALE * 100;
-const SCALE_SLIDER_MAX = MAX_SCALE * 100;
+const SCALE_SLIDER_MIN = MIN_SCALE * PERCENT_FACTOR;
+const SCALE_SLIDER_MAX = MAX_SCALE * PERCENT_FACTOR;
 
 /**
  * Image Overlay (spec §7). Scope `url`. Renders a draggable image overlay inside the Shadow DOM and
@@ -65,6 +67,11 @@ export class ImageOverlayTool implements Tool<'image-overlay'> {
         this.state = { ...this.state, offsetX, offsetY };
         this.context?.persistState();
       },
+      onResizeCommit: (scale, offsetX, offsetY) => {
+        this.state = { ...this.state, scale, offsetX, offsetY };
+        this.context?.persistState();
+        this.context?.requestControlsRefresh();
+      },
     });
 
     // Re-apply a persisted image after reload (RF-ACT-4): pull the binary from IndexedDB.
@@ -90,7 +97,7 @@ export class ImageOverlayTool implements Tool<'image-overlay'> {
 
   renderControls() {
     const opacityPercent = Math.round(this.state.opacity * OPACITY_SLIDER_MAX);
-    const scalePercent = Math.round(this.state.scale * 100);
+    const scalePercent = Math.round(this.state.scale * PERCENT_FACTOR);
     const hasImage = this.state.imageKey !== null;
 
     return h(Fragment, null, [
@@ -98,6 +105,20 @@ export class ImageOverlayTool implements Tool<'image-overlay'> {
       this.renderFeedback(),
       hasImage ? this.renderImageControls(opacityPercent, scalePercent) : null,
     ]);
+  }
+
+  /** "120% · 640 × 480 px" once the image has loaded, otherwise just the scale percentage. */
+  private scaleValueText(scalePercent: number): string {
+    const natural = this.overlayNode?.getNaturalSize() ?? null;
+
+    if (!natural) {
+      return `${scalePercent}%`;
+    }
+
+    const width = Math.round(natural.width * this.state.scale);
+    const height = Math.round(natural.height * this.state.scale);
+
+    return `${scalePercent}% · ${width} × ${height} px`;
   }
 
   private renderDropZone(hasImage: boolean) {
@@ -144,11 +165,11 @@ export class ImageOverlayTool implements Tool<'image-overlay'> {
         onInput: (value) => this.updateState({ opacity: clampOpacity(value / OPACITY_SLIDER_MAX) }),
       }),
       this.renderBlendSelect(),
-      this.renderSlider('Scale', `${scalePercent}%`, {
+      this.renderSlider('Scale', this.scaleValueText(scalePercent), {
         min: SCALE_SLIDER_MIN,
         max: SCALE_SLIDER_MAX,
         value: scalePercent,
-        onInput: (value) => this.updateState({ scale: clampScale(value / 100) }),
+        onInput: (value) => this.updateState({ scale: clampScale(value / PERCENT_FACTOR) }),
       }),
       this.renderPositionInputs(),
       this.renderToggleRow(),

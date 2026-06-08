@@ -43,9 +43,96 @@ export function isBlendMode(value: string): value is BlendMode {
   return (BLEND_MODES as readonly string[]).includes(value);
 }
 
-/** CSS transform string from the current offset and scale; translate first so scale is anchored. */
-export function buildTransform(offsetX: number, offsetY: number, scale: number): string {
-  return `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
+/**
+ * CSS transform for the overlay position. The overlay is sized in pixels (see `renderedSize`) instead
+ * of via a CSS `scale()`, so the resize handles keep a fixed on-screen size at any scale factor.
+ */
+export function buildTransform(offsetX: number, offsetY: number): string {
+  return `translate(${offsetX}px, ${offsetY}px)`;
+}
+
+/** Rendered pixel size of the overlay box for a given natural size and uniform scale factor. */
+export function renderedSize(
+  naturalWidth: number,
+  naturalHeight: number,
+  scale: number,
+): { width: number; height: number } {
+  return { width: naturalWidth * scale, height: naturalHeight * scale };
+}
+
+/** Resize handle positions. Only corners are exposed; edges are omitted to preserve aspect ratio. */
+export type ResizeCorner = 'nw' | 'ne' | 'sw' | 'se';
+
+export const RESIZE_CORNERS: readonly ResizeCorner[] = ['nw', 'ne', 'sw', 'se'];
+
+/** An overlay transform produced by a resize gesture (committed or previewed). */
+export interface OverlayTransform {
+  scale: number;
+  offsetX: number;
+  offsetY: number;
+}
+
+export interface UniformResizeInput {
+  corner: ResizeCorner;
+  naturalWidth: number;
+  naturalHeight: number;
+  /** Overlay offset/scale captured at gesture start; they pin the anchor for the whole drag. */
+  startOffsetX: number;
+  startOffsetY: number;
+  startScale: number;
+  /** Live pointer position in viewport pixels. */
+  pointerX: number;
+  pointerY: number;
+}
+
+/**
+ * Computes the overlay transform while dragging a corner handle (spec §7). The corner opposite the
+ * dragged one stays pinned, and the aspect ratio is preserved by projecting the cursor onto the
+ * natural-size diagonal, so the design export is never distorted while still tracking the cursor.
+ */
+export function computeUniformResize(input: UniformResizeInput): OverlayTransform {
+  const {
+    corner,
+    naturalWidth,
+    naturalHeight,
+    startOffsetX,
+    startOffsetY,
+    startScale,
+    pointerX,
+    pointerY,
+  } = input;
+
+  const diagonalSquared = naturalWidth * naturalWidth + naturalHeight * naturalHeight;
+
+  if (diagonalSquared === 0) {
+    return { scale: startScale, offsetX: startOffsetX, offsetY: startOffsetY };
+  }
+
+  const startWidth = naturalWidth * startScale;
+  const startHeight = naturalHeight * startScale;
+  const left = startOffsetX;
+  const top = startOffsetY;
+  const right = startOffsetX + startWidth;
+  const bottom = startOffsetY + startHeight;
+
+  const movesLeftEdge = corner === 'nw' || corner === 'sw';
+  const movesTopEdge = corner === 'nw' || corner === 'ne';
+  const anchorX = movesLeftEdge ? right : left;
+  const anchorY = movesTopEdge ? bottom : top;
+
+  const candidateWidth = Math.abs(pointerX - anchorX);
+  const candidateHeight = Math.abs(pointerY - anchorY);
+
+  const projectedScale =
+    (candidateWidth * naturalWidth + candidateHeight * naturalHeight) / diagonalSquared;
+  const scale = clampScale(projectedScale);
+
+  const width = naturalWidth * scale;
+  const height = naturalHeight * scale;
+  const offsetX = movesLeftEdge ? anchorX - width : anchorX;
+  const offsetY = movesTopEdge ? anchorY - height : anchorY;
+
+  return { scale, offsetX, offsetY };
 }
 
 /** Direction of an arrow-key nudge. */

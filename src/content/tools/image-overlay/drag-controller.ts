@@ -34,6 +34,8 @@ export class DragController {
     private readonly callbacks: DragCallbacks,
     /** Reads the current committed offset at gesture start. */
     private readonly getOffset: () => { offsetX: number; offsetY: number },
+    /** Optional CSS selector for descendants that must not start a drag (e.g. resize handles). */
+    private readonly ignoreSelector?: string,
   ) {}
 
   attach(): void {
@@ -54,6 +56,11 @@ export class DragController {
   private handlePointerDown(event: PointerEvent): void {
     // Only primary button drags; ignore right/middle clicks.
     if (event.button !== 0) {
+      return;
+    }
+
+    // Presses on opted-out descendants (resize handles) own their own gesture.
+    if (this.ignoreSelector && (event.target as Element | null)?.closest(this.ignoreSelector)) {
       return;
     }
 

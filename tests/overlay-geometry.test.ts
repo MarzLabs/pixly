@@ -5,6 +5,7 @@ import {
   buildTransform,
   clampOpacity,
   clampScale,
+  computeUniformResize,
   createDefaultOverlayState,
   isBlendMode,
   MAX_OPACITY,
@@ -12,15 +13,21 @@ import {
   MIN_SCALE,
   NUDGE_LARGE_STEP_PX,
   NUDGE_STEP_PX,
+  renderedSize,
 } from '@content/tools/image-overlay/overlay-geometry';
 
 describe('overlay geometry', () => {
-  it('builds a translate-then-scale transform string', () => {
+  it('builds a translate-only transform string (size is applied separately)', () => {
     // Arrange / Act.
-    const transform = buildTransform(10, -5, 2);
+    const transform = buildTransform(10, -5);
 
     // Assert.
-    expect(transform).toBe('translate(10px, -5px) scale(2)');
+    expect(transform).toBe('translate(10px, -5px)');
+  });
+
+  it('computes rendered pixel size from natural size and scale', () => {
+    // Arrange / Act / Assert.
+    expect(renderedSize(200, 100, 1.5)).toEqual({ width: 300, height: 150 });
   });
 
   it('clamps opacity into the 0..1 range', () => {
@@ -75,5 +82,115 @@ describe('overlay geometry', () => {
     expect(state.offsetX).toBe(0);
     expect(state.offsetY).toBe(0);
     expect(state.locked).toBe(false);
+  });
+});
+
+describe('computeUniformResize', () => {
+  const SQUARE = { naturalWidth: 100, naturalHeight: 100 } as const;
+
+  it('grows from the SE corner while pinning the top-left corner', () => {
+    // Arrange / Act.
+    const result = computeUniformResize({
+      corner: 'se',
+      ...SQUARE,
+      startOffsetX: 0,
+      startOffsetY: 0,
+      startScale: 1,
+      pointerX: 200,
+      pointerY: 200,
+    });
+
+    // Assert: scale doubles, top-left stays put.
+    expect(result).toEqual({ scale: 2, offsetX: 0, offsetY: 0 });
+  });
+
+  it('keeps the bottom-right corner pinned when dragging the NW handle', () => {
+    // Arrange.
+    const startRight = 100;
+    const startBottom = 100;
+
+    // Act.
+    const result = computeUniformResize({
+      corner: 'nw',
+      ...SQUARE,
+      startOffsetX: 0,
+      startOffsetY: 0,
+      startScale: 1,
+      pointerX: -100,
+      pointerY: -100,
+    });
+
+    // Assert: the opposite (bottom-right) corner is unchanged.
+    expect(result.offsetX + SQUARE.naturalWidth * result.scale).toBe(startRight);
+    expect(result.offsetY + SQUARE.naturalHeight * result.scale).toBe(startBottom);
+    expect(result.scale).toBe(2);
+  });
+
+  it('preserves the aspect ratio of a non-square image', () => {
+    // Arrange / Act.
+    const result = computeUniformResize({
+      corner: 'se',
+      naturalWidth: 200,
+      naturalHeight: 100,
+      startOffsetX: 0,
+      startOffsetY: 0,
+      startScale: 1,
+      pointerX: 400,
+      pointerY: 100,
+    });
+
+    // Assert: width/height stay at the natural 2:1 ratio (undistorted).
+    const width = 200 * result.scale;
+    const height = 100 * result.scale;
+    expect(width / height).toBe(2);
+  });
+
+  it('clamps to the maximum scale on a large drag', () => {
+    // Arrange / Act.
+    const result = computeUniformResize({
+      corner: 'se',
+      ...SQUARE,
+      startOffsetX: 0,
+      startOffsetY: 0,
+      startScale: 1,
+      pointerX: 10_000,
+      pointerY: 10_000,
+    });
+
+    // Assert.
+    expect(result.scale).toBe(MAX_SCALE);
+  });
+
+  it('clamps to the minimum scale when the pointer reaches the anchor', () => {
+    // Arrange / Act.
+    const result = computeUniformResize({
+      corner: 'se',
+      ...SQUARE,
+      startOffsetX: 0,
+      startOffsetY: 0,
+      startScale: 1,
+      pointerX: 0,
+      pointerY: 0,
+    });
+
+    // Assert.
+    expect(result.scale).toBe(MIN_SCALE);
+  });
+
+  it('is a no-op while the natural size is unknown (image not loaded)', () => {
+    // Arrange / Act.
+    const result = computeUniformResize({
+      corner: 'se',
+      naturalWidth: 0,
+      naturalHeight: 0,
+      startOffsetX: 5,
+      startOffsetY: 7,
+      startScale: 1.5,
+      pointerX: 300,
+      pointerY: 300,
+    });
+
+    // Assert.
+    expect(result).toEqual({ scale: 1.5, offsetX: 5, offsetY: 7 });
   });
 });
