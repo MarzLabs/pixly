@@ -33,6 +33,7 @@ export class ResizeController {
   private readonly onPointerMove = (event: PointerEvent): void => this.handlePointerMove(event);
   private readonly onPointerUp = (event: PointerEvent): void => this.handlePointerUp(event);
   private readonly onPointerCancel = (event: PointerEvent): void => this.handlePointerUp(event);
+  private readonly onLostCapture = (event: PointerEvent): void => this.handlePointerUp(event);
 
   constructor(
     private readonly callbacks: ResizeCallbacks,
@@ -51,6 +52,8 @@ export class ResizeController {
     handle.addEventListener('pointermove', this.onPointerMove);
     handle.addEventListener('pointerup', this.onPointerUp);
     handle.addEventListener('pointercancel', this.onPointerCancel);
+    // Capture can break mid-gesture (e.g. the handle turns display:none); end the gesture then.
+    handle.addEventListener('lostpointercapture', this.onLostCapture);
   }
 
   detach(): void {
@@ -61,6 +64,7 @@ export class ResizeController {
       handle.removeEventListener('pointermove', this.onPointerMove);
       handle.removeEventListener('pointerup', this.onPointerUp);
       handle.removeEventListener('pointercancel', this.onPointerCancel);
+      handle.removeEventListener('lostpointercapture', this.onLostCapture);
     }
 
     this.handleCorners.clear();
@@ -102,6 +106,14 @@ export class ResizeController {
 
   private handlePointerMove(event: PointerEvent): void {
     if (this.activePointerId !== event.pointerId || !this.activeCorner) {
+      return;
+    }
+
+    // An active gesture with no pressed buttons means the pointerup was never delivered (lost
+    // capture): end it now, otherwise merely hovering the handle would keep resizing the overlay.
+    if (event.buttons === 0) {
+      this.handlePointerUp(event);
+
       return;
     }
 

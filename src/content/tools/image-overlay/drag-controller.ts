@@ -28,6 +28,7 @@ export class DragController {
   private readonly onPointerMove = (event: PointerEvent): void => this.handlePointerMove(event);
   private readonly onPointerUp = (event: PointerEvent): void => this.handlePointerUp(event);
   private readonly onPointerCancel = (event: PointerEvent): void => this.handlePointerUp(event);
+  private readonly onLostCapture = (event: PointerEvent): void => this.handlePointerUp(event);
 
   constructor(
     private readonly element: HTMLElement,
@@ -43,6 +44,8 @@ export class DragController {
     this.element.addEventListener('pointermove', this.onPointerMove);
     this.element.addEventListener('pointerup', this.onPointerUp);
     this.element.addEventListener('pointercancel', this.onPointerCancel);
+    // Capture can break mid-gesture (e.g. the overlay turns display:none); end the gesture then.
+    this.element.addEventListener('lostpointercapture', this.onLostCapture);
   }
 
   detach(): void {
@@ -51,6 +54,7 @@ export class DragController {
     this.element.removeEventListener('pointermove', this.onPointerMove);
     this.element.removeEventListener('pointerup', this.onPointerUp);
     this.element.removeEventListener('pointercancel', this.onPointerCancel);
+    this.element.removeEventListener('lostpointercapture', this.onLostCapture);
   }
 
   private handlePointerDown(event: PointerEvent): void {
@@ -88,6 +92,14 @@ export class DragController {
 
   private handlePointerMove(event: PointerEvent): void {
     if (this.activePointerId !== event.pointerId) {
+      return;
+    }
+
+    // An active gesture with no pressed buttons means the pointerup was never delivered (lost
+    // capture): end it now, otherwise merely hovering would keep dragging the overlay.
+    if (event.buttons === 0) {
+      this.handlePointerUp(event);
+
       return;
     }
 

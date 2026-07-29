@@ -139,6 +139,14 @@ export function Toolbar({ activeTools, refreshNonce, uiState, onUiStateChange }:
         return;
       }
 
+      // No pressed buttons on an active gesture: the pointerup was lost — end the drag instead
+      // of letting hover keep moving the widget.
+      if (event.buttons === 0) {
+        onPointerUp(event);
+
+        return;
+      }
+
       const deltaX = event.clientX - drag.startX;
       const deltaY = event.clientY - drag.startY;
 
@@ -226,6 +234,8 @@ export function Toolbar({ activeTools, refreshNonce, uiState, onUiStateChange }:
     root.addEventListener('pointermove', onPointerMove);
     root.addEventListener('pointerup', onPointerUp);
     root.addEventListener('pointercancel', onPointerCancel);
+    // Capture can break mid-gesture (e.g. the widget re-renders); end the drag cleanly then.
+    root.addEventListener('lostpointercapture', onPointerCancel);
     root.addEventListener('click', onClickCapture, true);
 
     return () => {
@@ -233,6 +243,7 @@ export function Toolbar({ activeTools, refreshNonce, uiState, onUiStateChange }:
       root.removeEventListener('pointermove', onPointerMove);
       root.removeEventListener('pointerup', onPointerUp);
       root.removeEventListener('pointercancel', onPointerCancel);
+      root.removeEventListener('lostpointercapture', onPointerCancel);
       root.removeEventListener('click', onClickCapture, true);
     };
   }, []);
