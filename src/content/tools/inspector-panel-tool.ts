@@ -9,6 +9,9 @@ import { shouldHandleClick } from '@/shared/utils/click-guard';
 import { buildElementSpecs, formatSpecsForClipboard, type ElementSpecs } from '@/shared/utils/css-specs';
 import { copyTextToClipboard, describeElement, elementUnderPoint, isElementVisible, isInsidePixlyUi, isInsidePixlyInteractivePanel } from '@/shared/utils/dom';
 import { PIXLY_INTERACTIVE_ATTR } from '@/shared/constants/ui';
+import { saveSettings } from '@/shared/utils/storage';
+import { sendMessageToRuntime } from '@/shared/messaging';
+import { MessageType } from '@/shared/types/messages';
 import type { InspectorPanelSide } from '@/shared/types/settings';
 import { getSelectionManager, type SelectionSummary } from '../selection/selection-manager';
 import { ensureShadowMount } from '../shadow-host';
@@ -184,12 +187,17 @@ export class InspectorPanelTool implements Tool {
 
         if (!this.context) return;
 
-        // Persist the preference so the popup picks it up.
-        const next = { ...this.context.settings.inspectorPanel, side: this.side };
-        // Best-effort: rely on chrome.storage indirectly via background-less popup;
-        // here we just update the in-memory settings used by the rest of the
-        // tools. The popup writes its own.
-        (this.context.settings.inspectorPanel as { side: InspectorPanelSide }).side = next.side;
+        // Same settings object the popup's "Inspector panel side" preference
+        // reads and writes, so both surfaces share one source of truth.
+        (this.context.settings.inspectorPanel as { side: InspectorPanelSide }).side = this.side;
+        void saveSettings(this.context.settings);
+
+        // Fire-and-forget — the popup may not be open, which is fine. Keeps
+        // its preference dropdown in sync if it is.
+        void sendMessageToRuntime({
+            type: MessageType.UpdateSettings,
+            payload: { settings: this.context.settings },
+        });
     }
 
     private closePanel(): void {

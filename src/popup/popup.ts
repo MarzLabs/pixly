@@ -765,6 +765,16 @@ class PopupController {
             await this.persist();
         });
 
+        // The panel's own "Side" button (in the page) writes through the same
+        // chrome.storage settings and broadcasts the change here, so the
+        // dropdown stays correct if the popup happens to be open at the time.
+        chrome.runtime.onMessage.addListener((message: PixlyMessage) => {
+            if (message.type === MessageType.UpdateSettings) {
+                this.settings.inspectorPanel = message.payload.settings.inspectorPanel;
+                inspectorSide.value = this.settings.inspectorPanel.side;
+            }
+        });
+
         // Reference the default constant to keep the import meaningful even if
         // the user resets through the global reset button.
         void INSPECTOR_PANEL_DEFAULTS;
