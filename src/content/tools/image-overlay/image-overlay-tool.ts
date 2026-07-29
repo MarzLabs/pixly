@@ -20,11 +20,7 @@ import {
   MIN_SCALE,
   reanchorOffset,
 } from './overlay-geometry';
-import {
-  extractImageFile,
-  PERSIST_WARN_BYTES,
-  readImageBlob,
-} from './image-loader';
+import { extractImageFile, PERSIST_WARN_BYTES, readImageBlob } from './image-loader';
 
 /** Factor to turn a 0..1 scale factor into a UI percentage and back. */
 const PERCENT_FACTOR = 100;
@@ -63,17 +59,26 @@ export class ImageOverlayTool implements Tool<'image-overlay'> {
     this.context = context;
     this.state = state;
 
-    this.overlayNode = new OverlayNode(context.shadowRoot.querySelector('.pixly-layer') ?? document.body, state, {
-      onOffsetCommit: (offsetX, offsetY) => {
-        this.state = { ...this.state, offsetX, offsetY };
-        this.context?.persistState();
+    this.overlayNode = new OverlayNode(
+      context.shadowRoot.querySelector('.pixly-layer') ?? document.body,
+      state,
+      {
+        onOffsetCommit: (offsetX, offsetY) => {
+          this.state = { ...this.state, offsetX, offsetY };
+          this.context?.persistState();
+        },
+        onResizeCommit: (scale, offsetX, offsetY) => {
+          this.state = { ...this.state, scale, offsetX, offsetY };
+          this.context?.persistState();
+          this.context?.requestControlsRefresh();
+        },
+        onOpacityCommit: (opacity) => {
+          this.state = { ...this.state, opacity };
+          this.context?.persistState();
+          this.context?.requestControlsRefresh();
+        },
       },
-      onResizeCommit: (scale, offsetX, offsetY) => {
-        this.state = { ...this.state, scale, offsetX, offsetY };
-        this.context?.persistState();
-        this.context?.requestControlsRefresh();
-      },
-    });
+    );
 
     // Re-apply a persisted image after reload (RF-ACT-4): pull the binary from IndexedDB.
     if (state.imageKey) {
@@ -138,7 +143,9 @@ export class ImageOverlayTool implements Tool<'image-overlay'> {
         },
         onDrop: (event: DragEvent) => this.handleDrop(event),
       },
-      hasImage ? 'Drop, paste, or click to replace the image' : 'Drop, paste, or click to add an image',
+      hasImage
+        ? 'Drop, paste, or click to replace the image'
+        : 'Drop, paste, or click to add an image',
     );
   }
 
@@ -202,7 +209,9 @@ export class ImageOverlayTool implements Tool<'image-overlay'> {
 
   private renderBlendSelect() {
     return h('div', { key: 'blend', className: 'pixly-control' }, [
-      h('label', { key: 'l', className: 'pixly-control__label' }, [h('span', { key: 't' }, 'Blend mode')]),
+      h('label', { key: 'l', className: 'pixly-control__label' }, [
+        h('span', { key: 't' }, 'Blend mode'),
+      ]),
       h(
         'select',
         {
@@ -223,7 +232,9 @@ export class ImageOverlayTool implements Tool<'image-overlay'> {
 
   private renderPositionInputs() {
     return h('div', { key: 'position', className: 'pixly-control' }, [
-      h('label', { key: 'l', className: 'pixly-control__label' }, [h('span', { key: 't' }, 'Position (X / Y)')]),
+      h('label', { key: 'l', className: 'pixly-control__label' }, [
+        h('span', { key: 't' }, 'Position (X / Y)'),
+      ]),
       h('div', { key: 'r', className: 'pixly-control__row' }, [
         h('input', {
           key: 'x',
@@ -259,20 +270,16 @@ export class ImageOverlayTool implements Tool<'image-overlay'> {
           h('span', { key: 't' }, 'Lock'),
         ],
       ),
-      h(
-        'label',
-        { key: 'hide', className: 'pixly-toggle' },
-        [
-          h('input', {
-            key: 'i',
-            type: 'checkbox',
-            checked: this.state.hidden,
-            onChange: (event: Event) =>
-              this.updateState({ hidden: (event.target as HTMLInputElement).checked }),
-          }),
-          h('span', { key: 't' }, 'Hide'),
-        ],
-      ),
+      h('label', { key: 'hide', className: 'pixly-toggle' }, [
+        h('input', {
+          key: 'i',
+          type: 'checkbox',
+          checked: this.state.hidden,
+          onChange: (event: Event) =>
+            this.updateState({ hidden: (event.target as HTMLInputElement).checked }),
+        }),
+        h('span', { key: 't' }, 'Hide'),
+      ]),
       h(
         'label',
         {
@@ -302,7 +309,11 @@ export class ImageOverlayTool implements Tool<'image-overlay'> {
       ),
       h(
         'button',
-        { key: 'remove', className: 'pixly-btn pixly-btn--danger', onClick: () => void this.removeImage() },
+        {
+          key: 'remove',
+          className: 'pixly-btn pixly-btn--danger',
+          onClick: () => void this.removeImage(),
+        },
         'Remove',
       ),
     ]);
@@ -362,6 +373,11 @@ export class ImageOverlayTool implements Tool<'image-overlay'> {
   /** Public entry point so the toolbar can forward window-level paste events to the active tool. */
   handlePastedFile(file: File): void {
     void this.loadFile(file);
+  }
+
+  /** Flips overlay visibility. Public so the keyboard command (chrome.commands) can drive it. */
+  toggleHidden(): void {
+    this.updateState({ hidden: !this.state.hidden });
   }
 
   private async loadFile(file: File): Promise<void> {

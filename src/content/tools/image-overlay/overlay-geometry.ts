@@ -1,10 +1,13 @@
 import type { BlendMode, OverlayState } from '@shared/types';
 import { BLEND_MODES } from '@shared/types';
+import { clamp } from '@shared/lib/math';
 
 /**
  * Pure geometry/state helpers for the image overlay (spec §7). No DOM access, so position math,
  * nudge logic and clamping are unit-testable.
  */
+
+export { clamp };
 
 export const MIN_OPACITY = 0;
 export const MAX_OPACITY = 1;
@@ -13,6 +16,8 @@ export const MAX_SCALE = 8;
 /** Keyboard nudge step (px) and its modifier (Shift) multiplier (spec §7.3). */
 export const NUDGE_STEP_PX = 1;
 export const NUDGE_LARGE_STEP_PX = 10;
+/** Opacity change per `[` / `]` keypress while the overlay has focus. */
+export const OPACITY_KEY_STEP = 0.05;
 
 export function createDefaultOverlayState(): OverlayState {
   return {
@@ -43,10 +48,6 @@ export function reanchorOffset(
   const sign = toPinned ? -1 : 1;
 
   return { offsetX: offsetX + sign * scrollX, offsetY: offsetY + sign * scrollY };
-}
-
-export function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
 }
 
 export function clampOpacity(value: number): number {
@@ -191,4 +192,21 @@ export function arrowKeyToDirection(key: string): NudgeDirection | null {
     default:
       return null;
   }
+}
+
+/** Maps `[` / `]` to an opacity step sign, or null for any other key. */
+export function bracketKeyToOpacityDelta(key: string): 1 | -1 | null {
+  switch (key) {
+    case '[':
+      return -1;
+    case ']':
+      return 1;
+    default:
+      return null;
+  }
+}
+
+/** Applies one keyboard opacity step, clamped to the valid range. */
+export function stepOpacity(opacity: number, delta: 1 | -1): number {
+  return clampOpacity(opacity + delta * OPACITY_KEY_STEP);
 }

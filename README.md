@@ -11,6 +11,13 @@ An extensible Chrome (Manifest V3) toolset for visual web development. v1 ships 
 Both tools persist per site and survive full reloads, and only activate where you turn them on. All
 of Pixly's own UI lives inside an isolated Shadow DOM, so it never pollutes the page.
 
+Live controls live in an on-page **pill widget**: minimized by default, draggable, expandable on
+click, and it fades while idle so it never covers the pixels you are comparing. Its position and
+expansion persist per site. Set-and-forget configuration (like the broken-image size threshold)
+lives in the popup instead. Keyboard shortcuts (rebindable at `chrome://extensions/shortcuts`):
+`Alt+Shift+P` toggles the toolbar, `Alt+Shift+O` toggles the overlay; with the overlay focused,
+arrow keys nudge it (Shift for 10px) and `[` / `]` step its opacity.
+
 ## Tech stack
 
 - **Vite** + **@crxjs/vite-plugin** (MV3 bundling with HMR)
@@ -67,4 +74,7 @@ Pixly follows least privilege (no permanent `<all_urls>` grant):
 2. Register it in `src/content/core/create-registry.ts`.
 3. Add a catalog entry in `src/shared/constants/tool-catalog.ts` so the popup lists it.
 
-No changes to the core, the persistence layer, or other tools are required.
+No changes to the core, the persistence layer, or other tools are required. Implement
+`renderControls` only for controls adjusted while watching the page — they appear as a tab in the
+pill widget. Declare set-and-forget settings as `configFields` in the catalog entry instead, and
+they render in the popup and reach the tool through `restoreState`.

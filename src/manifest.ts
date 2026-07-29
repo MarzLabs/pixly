@@ -1,5 +1,6 @@
 import { defineManifest } from '@crxjs/vite-plugin';
 import packageJson from '../package.json';
+import { COMMAND_ID } from './shared/constants';
 
 const { version } = packageJson;
 
@@ -41,4 +42,16 @@ export default defineManifest({
   ],
   permissions: ['activeTab', 'storage', 'scripting'],
   optional_host_permissions: ['*://*/*'],
+  // High-frequency actions get keyboard shortcuts so the on-page widget can stay minimized.
+  // Users can rebind them at chrome://extensions/shortcuts.
+  commands: {
+    [COMMAND_ID.toggleToolbar]: {
+      suggested_key: { default: 'Alt+Shift+P' },
+      description: 'Expand or collapse the Pixly toolbar on the current page',
+    },
+    [COMMAND_ID.toggleOverlay]: {
+      suggested_key: { default: 'Alt+Shift+O' },
+      description: 'Show or hide the image overlay on the current page',
+    },
+  },
 });

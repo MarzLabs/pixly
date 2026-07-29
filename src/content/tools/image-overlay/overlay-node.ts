@@ -5,9 +5,11 @@ import type { OverlayTransform } from './overlay-geometry';
 import {
   applyNudge,
   arrowKeyToDirection,
+  bracketKeyToOpacityDelta,
   buildTransform,
   renderedSize,
   RESIZE_CORNERS,
+  stepOpacity,
 } from './overlay-geometry';
 
 /**
@@ -27,6 +29,8 @@ export interface OverlayNodeCallbacks {
   onOffsetCommit: (offsetX: number, offsetY: number) => void;
   /** Called when a corner-resize gesture commits a new scale and offset → persist + refresh UI. */
   onResizeCommit: (scale: number, offsetX: number, offsetY: number) => void;
+  /** Called when a keyboard opacity step (`[` / `]`) commits a new opacity → persist + refresh UI. */
+  onOpacityCommit: (opacity: number) => void;
 }
 
 export class OverlayNode {
@@ -91,9 +95,7 @@ export class OverlayNode {
       // Document-anchored overlays store offsets in document space, so the viewport pointer must be
       // shifted by the scroll position to stay in the same space; pinned overlays need no shift.
       () =>
-        this.state.pinnedToViewport
-          ? { x: 0, y: 0 }
-          : { x: window.scrollX, y: window.scrollY },
+        this.state.pinnedToViewport ? { x: 0, y: 0 } : { x: window.scrollX, y: window.scrollY },
     );
 
     this.createHandles();
@@ -202,19 +204,35 @@ export class OverlayNode {
   }
 
   private handleKeyDown(event: KeyboardEvent): void {
-    const direction = arrowKeyToDirection(event.key);
-
-    if (!direction || this.state.locked) {
+    if (this.state.locked) {
       return;
     }
 
-    // Arrow keys move the overlay; Shift switches to the coarse step (spec §7.3).
-    event.preventDefault();
+    const direction = arrowKeyToDirection(event.key);
 
-    const next = applyNudge(this.state.offsetX, this.state.offsetY, direction, event.shiftKey);
+    if (direction) {
+      // Arrow keys move the overlay; Shift switches to the coarse step (spec §7.3).
+      event.preventDefault();
 
-    this.state = { ...this.state, offsetX: next.offsetX, offsetY: next.offsetY };
-    this.previewPosition(next.offsetX, next.offsetY);
-    this.callbacks.onOffsetCommit(next.offsetX, next.offsetY);
+      const next = applyNudge(this.state.offsetX, this.state.offsetY, direction, event.shiftKey);
+
+      this.state = { ...this.state, offsetX: next.offsetX, offsetY: next.offsetY };
+      this.previewPosition(next.offsetX, next.offsetY);
+      this.callbacks.onOffsetCommit(next.offsetX, next.offsetY);
+
+      return;
+    }
+
+    const opacityDelta = bracketKeyToOpacityDelta(event.key);
+
+    if (opacityDelta) {
+      event.preventDefault();
+
+      const opacity = stepOpacity(this.state.opacity, opacityDelta);
+
+      this.state = { ...this.state, opacity };
+      this.image.style.opacity = String(opacity);
+      this.callbacks.onOpacityCommit(opacity);
+    }
   }
 }

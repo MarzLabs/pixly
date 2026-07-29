@@ -59,8 +59,27 @@ export interface ScopeRecord {
   states: Partial<{ [K in keyof ToolStateMap]: ToolStateMap[K] }>;
 }
 
+/** Top-left viewport position of the in-page toolbar widget, in CSS pixels. */
+export interface WidgetPosition {
+  x: number;
+  y: number;
+}
+
+/**
+ * Persisted UI state of the in-page toolbar, keyed by origin. Independent from tool state: it
+ * describes where the pill/panel sits and whether the panel is expanded, not what any tool does.
+ */
+export interface ToolbarUiState {
+  /** Null means the default docking corner (top-right); set once the user drags the widget. */
+  position: WidgetPosition | null;
+  /** The widget starts life as a minimized pill; expansion is an explicit user choice. */
+  expanded: boolean;
+}
+
 /** Root persisted document. Keyed first by scope key, with a global enable flag. */
 export interface PixlyConfig {
   globalEnabled: boolean;
   scopes: Record<string, ScopeRecord>;
+  /** Toolbar UI state per origin. Optional so configs stored before this field keep loading. */
+  toolbarUi?: Record<string, ToolbarUiState>;
 }

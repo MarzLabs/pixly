@@ -1,4 +1,4 @@
-import type { ToolId } from '@shared/constants';
+import type { CommandId, ToolId } from '@shared/constants';
 import type { PixlyConfig } from '@shared/types';
 
 /**
@@ -15,6 +15,12 @@ export type PopupToContentMessage =
   | { type: 'pixly/request-page-context' }
   | { type: 'pixly/toggle-tool'; toolId: ToolId; enabled: boolean }
   | { type: 'pixly/set-global-enabled'; enabled: boolean };
+
+/** Sent by the service worker when a chrome.commands keyboard shortcut fires. */
+export type BackgroundToContentMessage = { type: 'pixly/command'; commandId: CommandId };
+
+/** Everything the content script's message listener can receive. */
+export type ContentInboundMessage = PopupToContentMessage | BackgroundToContentMessage;
 
 /** Reply describing what the content script knows about the current page. */
 export interface PageContext {
@@ -35,4 +41,4 @@ export type RuntimeMessage =
   | { type: 'pixly/config-snapshot'; config: PixlyConfig }
   | PopupToContentMessage;
 
-export type AnyMessage = PopupToContentMessage | ContentToPopupReply | RuntimeMessage;
+export type AnyMessage = ContentInboundMessage | ContentToPopupReply | RuntimeMessage;

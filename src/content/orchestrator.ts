@@ -1,16 +1,22 @@
-import type { ToolId } from '@shared/constants';
-import type { PixlyConfig } from '@shared/types';
+import { COMMAND_ID, TOOL_ID, type CommandId, type ToolId } from '@shared/constants';
+import type { PixlyConfig, ToolbarUiState } from '@shared/types';
 import { deriveScopeKey } from '@shared/lib/scope';
 import {
   activateTool as activateInConfig,
   deactivateTool as deactivateInConfig,
   getActiveToolIds,
+  getToolbarUiState,
   getToolState,
   setGlobalEnabled,
+  updateToolbarUiState,
   updateToolState,
 } from '@shared/persistence/config-document';
 import { loadConfig, onConfigChanged, saveConfig } from '@shared/persistence/config-store';
-import type { ContentToPopupReply, PageContext, PopupToContentMessage } from '@shared/messaging/messages';
+import type {
+  ContentInboundMessage,
+  ContentToPopupReply,
+  PageContext,
+} from '@shared/messaging/messages';
 import { createRegistry } from './core/create-registry';
 import type { Tool, ToolContext } from './core/tool';
 import type { ToolRegistry } from './core/tool-registry';
@@ -34,6 +40,12 @@ export class Orchestrator {
   /** Tools currently activated on this page, by id. */
   private readonly liveTools = new Map<ToolId, Tool>();
   private currentHref = location.href;
+  /**
+   * Session-only expansion override. Activating a tool from the popup expands the panel right away
+   * (the user is about to use it) WITHOUT persisting that choice, so after a reload the widget
+   * still honors the persisted state — a pill by default. Null means "no override".
+   */
+  private transientExpanded: boolean | null = null;
 
   constructor() {
     this.registry = createRegistry(() => this.buildContext(this.activeContextToolId));
@@ -64,7 +76,9 @@ export class Orchestrator {
     }
 
     const root = this.shadowHost.mount();
-    this.toolbar ??= new ToolbarMount(this.shadowHost.layer);
+    this.toolbar ??= new ToolbarMount(this.shadowHost.layer, (state) =>
+      this.commitToolbarUiState(state),
+    );
 
     const desired = new Set<ToolId>(this.collectActiveToolIdsForPage());
 
@@ -78,7 +92,11 @@ export class Orchestrator {
 
     // Activate newly desired tools, restoring their persisted state.
     for (const toolId of desired) {
-      if (this.liveTools.has(toolId)) {
+      const alreadyLive = this.liveTools.get(toolId);
+
+      if (alreadyLive) {
+        this.pushPersistedStateIfChanged(alreadyLive);
+
         continue;
       }
 
@@ -98,7 +116,51 @@ export class Orchestrator {
     }
 
     void root;
-    this.toolbar.sync([...this.liveTools.values()]);
+    this.syncToolbar();
+  }
+
+  /**
+   * Applies externally-edited persisted state (e.g. popup config fields) to a live tool. The
+   * equality guard makes the tool's own persistState round-trip a no-op instead of a feedback loop.
+   */
+  private pushPersistedStateIfChanged(tool: Tool): void {
+    const scopeKey = deriveScopeKey(this.currentHref, tool.scope);
+    const persisted = getToolState(this.config, scopeKey, tool.id as never);
+
+    if (!persisted) {
+      return;
+    }
+
+    if (JSON.stringify(persisted) !== JSON.stringify(tool.serializeState())) {
+      tool.restoreState(persisted as never);
+    }
+  }
+
+  /** Effective toolbar UI state: persisted per-origin state plus the session expansion override. */
+  private toolbarUiState(): ToolbarUiState {
+    const persisted = getToolbarUiState(this.config, deriveScopeKey(this.currentHref, 'origin'));
+
+    return this.transientExpanded === null
+      ? persisted
+      : { ...persisted, expanded: this.transientExpanded };
+  }
+
+  private syncToolbar(): void {
+    this.toolbar?.sync([...this.liveTools.values()], this.toolbarUiState());
+  }
+
+  /** Persists a widget-initiated UI change (drag, expand, collapse) for the current origin. */
+  private commitToolbarUiState(state: ToolbarUiState): void {
+    // An explicit user choice replaces the session override.
+    this.transientExpanded = null;
+    this.config = updateToolbarUiState(
+      this.config,
+      deriveScopeKey(this.currentHref, 'origin'),
+      state,
+    );
+
+    void saveConfig(this.config);
+    this.syncToolbar();
   }
 
   /** Active tool ids that apply to the current page across both scope kinds. */
@@ -129,7 +191,7 @@ export class Orchestrator {
         }
       },
       requestControlsRefresh: () => {
-        this.toolbar?.refresh([...this.liveTools.values()]);
+        this.toolbar?.refresh([...this.liveTools.values()], this.toolbarUiState());
       },
     };
   }
@@ -142,7 +204,12 @@ export class Orchestrator {
     }
 
     const scopeKey = deriveScopeKey(this.currentHref, tool.scope);
-    this.config = updateToolState(this.config, scopeKey, toolId as never, tool.serializeState() as never);
+    this.config = updateToolState(
+      this.config,
+      scopeKey,
+      toolId as never,
+      tool.serializeState() as never,
+    );
 
     await saveConfig(this.config);
   }
@@ -161,6 +228,12 @@ export class Orchestrator {
       ? activateInConfig(this.config, scopeKey, toolId as never, tool.defaultState() as never)
       : deactivateInConfig(this.config, scopeKey, toolId);
 
+    // Expand the panel for this session when a tool with live controls is switched on: the user
+    // just expressed intent to use it. Not persisted — after a reload the pill default returns.
+    if (enabled && tool.renderControls) {
+      this.transientExpanded = true;
+    }
+
     await saveConfig(this.config);
     await this.reconcile();
   }
@@ -177,7 +250,10 @@ export class Orchestrator {
     }
 
     this.liveTools.clear();
-    this.toolbar?.sync([]);
+    this.toolbar?.sync([], this.toolbarUiState());
+    // The shadow host is recreated on re-enable, so a kept mount would render into a detached
+    // layer; drop it and let reconcile rebuild it against the fresh host.
+    this.toolbar = null;
   }
 
   /** Treats SPA route changes as navigation (RF-ACT-5): url-scoped tools are re-evaluated. */
@@ -188,6 +264,8 @@ export class Orchestrator {
       }
 
       this.currentHref = location.href;
+      // The session expansion override belongs to the page the user was configuring, not the next one.
+      this.transientExpanded = null;
       void this.reconcile();
     };
 
@@ -207,7 +285,7 @@ export class Orchestrator {
   /** Forwards window-level paste of an image to an active Image Overlay tool (spec §7.2). */
   private installPasteForwarder(): void {
     window.addEventListener('paste', (event) => {
-      const overlay = this.liveTools.get('image-overlay');
+      const overlay = this.liveTools.get(TOOL_ID.imageOverlay);
 
       if (!(overlay instanceof ImageOverlayTool)) {
         return;
@@ -223,7 +301,11 @@ export class Orchestrator {
 
   private installMessageListener(): void {
     chrome.runtime.onMessage.addListener(
-      (message: PopupToContentMessage, _sender, sendResponse: (reply: ContentToPopupReply) => void) => {
+      (
+        message: ContentInboundMessage,
+        _sender,
+        sendResponse: (reply: ContentToPopupReply) => void,
+      ) => {
         void this.handleMessage(message).then(sendResponse);
 
         // Returning true keeps the message channel open for the async reply.
@@ -232,7 +314,7 @@ export class Orchestrator {
     );
   }
 
-  private async handleMessage(message: PopupToContentMessage): Promise<ContentToPopupReply> {
+  private async handleMessage(message: ContentInboundMessage): Promise<ContentToPopupReply> {
     switch (message.type) {
       case 'pixly/request-page-context':
         return { type: 'pixly/page-context', context: this.buildPageContext() };
@@ -244,7 +326,41 @@ export class Orchestrator {
         await this.setGlobal(message.enabled);
 
         return { type: 'pixly/ack' };
+      case 'pixly/command':
+        this.handleCommand(message.commandId);
+
+        return { type: 'pixly/ack' };
     }
+  }
+
+  /** Keyboard shortcuts forwarded by the service worker (chrome.commands). */
+  private handleCommand(commandId: CommandId): void {
+    switch (commandId) {
+      case COMMAND_ID.toggleToolbar:
+        this.toggleToolbarExpanded();
+        break;
+      case COMMAND_ID.toggleOverlay: {
+        const overlay = this.liveTools.get(TOOL_ID.imageOverlay);
+
+        if (overlay instanceof ImageOverlayTool) {
+          overlay.toggleHidden();
+        }
+
+        break;
+      }
+    }
+  }
+
+  /** Flips the pill/panel state, honoring the same persistence rules as a widget click. */
+  private toggleToolbarExpanded(): void {
+    const hasLiveControls = [...this.liveTools.values()].some((tool) => tool.renderControls);
+
+    if (!hasLiveControls) {
+      return;
+    }
+
+    const current = this.toolbarUiState();
+    this.commitToolbarUiState({ ...current, expanded: !current.expanded });
   }
 
   private buildPageContext(): PageContext {

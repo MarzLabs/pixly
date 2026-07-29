@@ -1,20 +1,27 @@
 import { render, h } from 'preact';
+import type { ToolbarUiState } from '@shared/types';
 import type { Tool } from '@content/core/tool';
 import { Toolbar } from './Toolbar';
 
 /**
- * Mounts/refreshes the Preact toolbar inside the Shadow DOM. The toolbar only appears while at
- * least one tool is active (RF-UI-3); when none are active it unmounts entirely.
+ * Mounts/refreshes the Preact toolbar widget inside the Shadow DOM. The widget only appears while
+ * at least one active tool exposes LIVE controls (RF-UI-3); set-and-forget tools are configured
+ * from the popup instead, so they never summon the on-page widget.
  */
 export class ToolbarMount {
   private container: HTMLDivElement | null = null;
   private refreshNonce = 0;
 
-  constructor(private readonly layer: HTMLElement) {}
+  constructor(
+    private readonly layer: HTMLElement,
+    private readonly onUiStateChange: (state: ToolbarUiState) => void,
+  ) {}
 
-  /** Renders the toolbar for the given active tools, or removes it when the list is empty. */
-  sync(activeTools: Tool[]): void {
-    if (activeTools.length === 0) {
+  /** Renders the widget for the given active tools, or removes it when none have live controls. */
+  sync(activeTools: Tool[], uiState: ToolbarUiState): void {
+    const toolsWithControls = activeTools.filter((tool) => tool.renderControls);
+
+    if (toolsWithControls.length === 0) {
       this.unmount();
 
       return;
@@ -26,15 +33,20 @@ export class ToolbarMount {
     }
 
     render(
-      h(Toolbar, { activeTools, refreshNonce: this.refreshNonce }),
+      h(Toolbar, {
+        activeTools: toolsWithControls,
+        refreshNonce: this.refreshNonce,
+        uiState,
+        onUiStateChange: this.onUiStateChange,
+      }),
       this.container,
     );
   }
 
   /** Forces the live controls to re-render (e.g. after a tool mutates its own state). */
-  refresh(activeTools: Tool[]): void {
+  refresh(activeTools: Tool[], uiState: ToolbarUiState): void {
     this.refreshNonce += 1;
-    this.sync(activeTools);
+    this.sync(activeTools, uiState);
   }
 
   private unmount(): void {

@@ -1,8 +1,4 @@
-import type {
-  PixlyConfig,
-  ScopeRecord,
-  ToolStateMap,
-} from '@shared/types';
+import type { PixlyConfig, ScopeRecord, ToolbarUiState, ToolStateMap } from '@shared/types';
 import type { ToolId } from '@shared/constants';
 
 /**
@@ -63,11 +59,7 @@ export function activateTool<K extends keyof ToolStateMap>(
 }
 
 /** Deactivates a tool for a scope key and drops its stored state. Idempotent. */
-export function deactivateTool(
-  config: PixlyConfig,
-  scopeKey: string,
-  toolId: ToolId,
-): PixlyConfig {
+export function deactivateTool(config: PixlyConfig, scopeKey: string, toolId: ToolId): PixlyConfig {
   const record = config.scopes[scopeKey];
 
   if (!record) {
@@ -112,4 +104,65 @@ export function updateToolState<K extends keyof ToolStateMap>(
 
 export function setGlobalEnabled(config: PixlyConfig, enabled: boolean): PixlyConfig {
   return { ...config, globalEnabled: enabled };
+}
+
+/**
+ * Reads a single primitive field out of a tool's persisted state without knowing the concrete
+ * state shape. Lets catalog-driven UI (the popup's config fields) stay generic over tools.
+ */
+export function getToolConfigValue(
+  config: PixlyConfig,
+  scopeKey: string,
+  toolId: ToolId,
+  key: string,
+): number | undefined {
+  const state = config.scopes[scopeKey]?.states[toolId] as Record<string, unknown> | undefined;
+  const value = state?.[key];
+
+  return typeof value === 'number' ? value : undefined;
+}
+
+/** Writes a single primitive field into a tool's persisted state. No-op if the tool has no state yet. */
+export function updateToolConfigValue(
+  config: PixlyConfig,
+  scopeKey: string,
+  toolId: ToolId,
+  key: string,
+  value: number,
+): PixlyConfig {
+  const record = config.scopes[scopeKey];
+  const state = record?.states[toolId];
+
+  if (!record || !state) {
+    return config;
+  }
+
+  const nextState = { ...(state as unknown as Record<string, unknown>), [key]: value };
+
+  return {
+    ...config,
+    scopes: {
+      ...config.scopes,
+      [scopeKey]: { ...record, states: { ...record.states, [toolId]: nextState as never } },
+    },
+  };
+}
+
+/** The toolbar starts as a minimized pill in the default docking corner. */
+export function createDefaultToolbarUiState(): ToolbarUiState {
+  return { position: null, expanded: false };
+}
+
+/** Toolbar UI state for an origin, falling back to the pill default when never customized. */
+export function getToolbarUiState(config: PixlyConfig, originKey: string): ToolbarUiState {
+  return config.toolbarUi?.[originKey] ?? createDefaultToolbarUiState();
+}
+
+/** Persists the toolbar UI state (position + expansion) for an origin. Immutable like the rest. */
+export function updateToolbarUiState(
+  config: PixlyConfig,
+  originKey: string,
+  state: ToolbarUiState,
+): PixlyConfig {
+  return { ...config, toolbarUi: { ...config.toolbarUi, [originKey]: state } };
 }

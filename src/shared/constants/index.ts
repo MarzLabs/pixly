@@ -26,3 +26,18 @@ export const OVERLAY_STORE_NAME = 'overlay-images';
 
 /** Highest z-index Pixly is willing to use for its viewport-anchored UI. */
 export const PIXLY_MAX_Z_INDEX = 2147483646;
+
+/**
+ * chrome.commands identifiers. Keys in the manifest `commands` block and payloads of
+ * `chrome.commands.onCommand`, forwarded to the content script as `pixly/command` messages.
+ */
+export const COMMAND_ID = {
+  toggleToolbar: 'pixly-toggle-toolbar',
+  toggleOverlay: 'pixly-toggle-overlay',
+} as const;
+
+export type CommandId = (typeof COMMAND_ID)[keyof typeof COMMAND_ID];
+
+export function isCommandId(value: string): value is CommandId {
+  return (Object.values(COMMAND_ID) as string[]).includes(value);
+}

@@ -1,16 +1,26 @@
 import { useEffect, useMemo, useState } from 'preact/hooks';
-import { TOOL_CATALOG, type ToolCatalogEntry } from '@shared/constants/tool-catalog';
+import {
+  TOOL_CATALOG,
+  type ToolCatalogEntry,
+  type ToolConfigField,
+} from '@shared/constants/tool-catalog';
 import type { ToolId } from '@shared/constants';
 import type { PixlyConfig } from '@shared/types';
 import { deriveScopeKey } from '@shared/lib/scope';
-import { isToolActive } from '@shared/persistence/config-document';
-import { loadConfig, onConfigChanged } from '@shared/persistence/config-store';
+import {
+  getToolConfigValue,
+  isToolActive,
+  updateToolConfigValue,
+} from '@shared/persistence/config-document';
+import { loadConfig, onConfigChanged, saveConfig } from '@shared/persistence/config-store';
 import { sendToTab } from '@shared/messaging/send';
 
 /**
  * Pixly popup (spec §8, RF-UI-2). Lists every tool from the catalog with a per-site toggle plus a
- * global enable switch. The popup never mutates the page directly: it asks the active tab's content
- * script to toggle, which updates storage and reconciles. Config changes stream back via onChanged.
+ * global enable switch, and hosts the set-and-forget config fields declared in the catalog — live
+ * controls stay in the in-page widget. Toggling never mutates the page directly: it asks the active
+ * tab's content script, which updates storage and reconciles. Config edits are written straight to
+ * storage; the content script picks them up via onChanged and applies them to live tools.
  */
 export function PopupApp() {
   const [config, setConfig] = useState<PixlyConfig | null>(null);
@@ -49,6 +59,26 @@ export function PopupApp() {
     await sendToTab(tab.id, { type: 'pixly/set-global-enabled', enabled });
   }
 
+  async function changeConfigValue(
+    entry: ToolCatalogEntry,
+    field: ToolConfigField,
+    rawValue: string,
+  ): Promise<void> {
+    if (!config || !href) {
+      return;
+    }
+
+    const parsed = Number.parseInt(rawValue, 10);
+
+    if (!Number.isFinite(parsed) || (field.min !== undefined && parsed < field.min)) {
+      return;
+    }
+
+    const scopeKey = deriveScopeKey(href, entry.scope);
+
+    await saveConfig(updateToolConfigValue(config, scopeKey, entry.id, field.key, parsed));
+  }
+
   const activeFlags = useMemo(() => computeActiveFlags(config, href), [config, href]);
   const globalEnabled = config?.globalEnabled ?? true;
 
@@ -74,6 +104,36 @@ export function PopupApp() {
                 <span class="tool-card__scope">{entry.scope}</span>
               </div>
               <div class="tool-card__desc">{entry.description}</div>
+
+              {config && activeFlags[entry.id] && entry.configFields && (
+                <div class="tool-card__config">
+                  {entry.configFields.map((field) => (
+                    <label key={field.key} class="config-field">
+                      <span class="config-field__label">{field.label}</span>
+                      <input
+                        type="number"
+                        min={field.min}
+                        value={
+                          getToolConfigValue(
+                            config,
+                            deriveScopeKey(href, entry.scope),
+                            entry.id,
+                            field.key,
+                          ) ?? ''
+                        }
+                        onChange={(event) =>
+                          void changeConfigValue(
+                            entry,
+                            field,
+                            (event.target as HTMLInputElement).value,
+                          )
+                        }
+                      />
+                      {field.hint && <span class="config-field__hint">{field.hint}</span>}
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
             <Switch
               checked={activeFlags[entry.id] ?? false}
@@ -94,7 +154,8 @@ export function PopupApp() {
       </div>
 
       <p class="popup-note">
-        Tools stay active on this site across reloads, and only where you turn them on.
+        Tools stay active on this site across reloads, and only where you turn them on. Live
+        controls live in the on-page Pixly pill — click it to expand them.
       </p>
     </div>
   );

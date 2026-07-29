@@ -1,4 +1,3 @@
-import { h } from 'preact';
 import { TOOL_ID } from '@shared/constants';
 import type { FixBrokenImagesState } from '@shared/types';
 import type { Tool, ToolContext } from '@content/core/tool';
@@ -13,6 +12,10 @@ const RESCAN_DEBOUNCE_MS = 150;
 /**
  * Fix Broken Images (spec §6). Scope `origin`. Replaces broken `<img>` elements in place with a
  * reversible SVG placeholder, and keeps watching the DOM for late/lazy/dynamic images.
+ *
+ * A set-and-forget tool: it exposes NO live controls (no `renderControls`), so it never summons
+ * the in-page widget. Its one knob (`minSizePx`) is edited from the popup via the catalog's
+ * config fields and arrives here through `restoreState`.
  *
  * The Tool contract methods stay thin; all heavy logic lives in pure modules (detection,
  * placeholder, image-mutator) so it is testable without a live browser.
@@ -35,7 +38,8 @@ export class FixBrokenImagesTool implements Tool<'fix-broken-images'> {
   private readonly boundErrorListener = (event: Event): void => this.handleImageEvent(event);
   private readonly boundLoadListener = (event: Event): void => this.handleImageEvent(event);
 
-  constructor(private readonly contextProvider: () => ToolContext) {}
+  // Config edits arrive via restoreState(); this tool needs no runtime context of its own.
+  constructor(_contextProvider: () => ToolContext) {}
 
   defaultState(): FixBrokenImagesState {
     return { minSizePx: DEFAULT_MIN_SIZE_PX };
@@ -71,39 +75,22 @@ export class FixBrokenImagesTool implements Tool<'fix-broken-images'> {
     this.patchedImages.clear();
   }
 
-  renderControls() {
-    // Surface the one user-configurable knob: the minimum size threshold (spec §6.2).
-    return h('div', { className: 'pixly-control' }, [
-      h('label', { className: 'pixly-control__label', key: 'label' }, [
-        h('span', { key: 't' }, 'Minimum size (px)'),
-        h('span', { key: 'v' }, String(this.state.minSizePx)),
-      ]),
-      h('input', {
-        key: 'input',
-        type: 'number',
-        min: 1,
-        value: this.state.minSizePx,
-        onInput: (event: Event) => this.handleMinSizeChange(event),
-      }),
-    ]);
-  }
-
   serializeState(): FixBrokenImagesState {
     return { ...this.state };
   }
 
+  /** Applies externally-edited config (popup) live: re-scan so the new threshold takes effect. */
   restoreState(state: FixBrokenImagesState): void {
-    this.state = state;
-  }
+    const minSizePx =
+      Number.isFinite(state.minSizePx) && state.minSizePx > 0
+        ? state.minSizePx
+        : DEFAULT_MIN_SIZE_PX;
 
-  private handleMinSizeChange(event: Event): void {
-    const target = event.target as HTMLInputElement;
-    const parsed = Number.parseInt(target.value, 10);
+    this.state = { minSizePx };
 
-    this.state = { minSizePx: Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_MIN_SIZE_PX };
-
-    this.contextProvider().persistState();
-    this.scanAll();
+    if (this.mutationObserver) {
+      this.scanAll();
+    }
   }
 
   private startObserving(): void {

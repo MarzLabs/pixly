@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   applyNudge,
   arrowKeyToDirection,
+  bracketKeyToOpacityDelta,
   buildTransform,
   clampOpacity,
   clampScale,
@@ -10,11 +11,14 @@ import {
   isBlendMode,
   MAX_OPACITY,
   MAX_SCALE,
+  MIN_OPACITY,
   MIN_SCALE,
   NUDGE_LARGE_STEP_PX,
   NUDGE_STEP_PX,
+  OPACITY_KEY_STEP,
   reanchorOffset,
   renderedSize,
+  stepOpacity,
 } from '@content/tools/image-overlay/overlay-geometry';
 
 describe('overlay geometry', () => {
@@ -65,6 +69,21 @@ describe('overlay geometry', () => {
     expect(arrowKeyToDirection('ArrowLeft')).toBe('left');
     expect(arrowKeyToDirection('ArrowDown')).toBe('down');
     expect(arrowKeyToDirection('Enter')).toBeNull();
+  });
+
+  it('maps bracket keys to opacity deltas and ignores other keys', () => {
+    // Arrange / Act / Assert.
+    expect(bracketKeyToOpacityDelta('[')).toBe(-1);
+    expect(bracketKeyToOpacityDelta(']')).toBe(1);
+    expect(bracketKeyToOpacityDelta('ArrowUp')).toBeNull();
+  });
+
+  it('steps opacity by one keyboard increment, clamped to the valid range', () => {
+    // Arrange / Act / Assert.
+    expect(stepOpacity(0.5, 1)).toBeCloseTo(0.5 + OPACITY_KEY_STEP);
+    expect(stepOpacity(0.5, -1)).toBeCloseTo(0.5 - OPACITY_KEY_STEP);
+    expect(stepOpacity(MAX_OPACITY, 1)).toBe(MAX_OPACITY);
+    expect(stepOpacity(MIN_OPACITY, -1)).toBe(MIN_OPACITY);
   });
 
   it('recognizes difference as a valid blend mode (pixel-perfect comparison)', () => {

@@ -40,8 +40,12 @@ export interface Tool<Id extends ToolId = ToolId> {
   /** Turns the effect off and restores the page to its original state (RF-CORE-3). */
   deactivate(): void;
 
-  /** Renders the tool's live controls into the in-page toolbar. Returns Preact children. */
-  renderControls(): ComponentChildren;
+  /**
+   * Renders the tool's live controls into the in-page toolbar. Returns Preact children.
+   * Optional: set-and-forget tools omit it and expose configuration via the popup's catalog
+   * config fields instead, so they never summon the on-page widget.
+   */
+  renderControls?(): ComponentChildren;
 
   /** Returns the current state for persistence. */
   serializeState(): ToolStateMap[Id];
