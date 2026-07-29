@@ -3,6 +3,7 @@ export const TOOL_ID = {
   fixBrokenImages: 'fix-broken-images',
   imageOverlay: 'image-overlay',
   globalOutlines: 'global-outlines',
+  gridOverlay: 'grid-overlay',
 } as const;
 
 export type ToolId = (typeof TOOL_ID)[keyof typeof TOOL_ID];

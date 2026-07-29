@@ -256,6 +256,48 @@
   color: var(--pixly-color-brand);
 }
 
+/* ---- Grid overlay node ---- */
+
+/* Document-anchored so the grid scrolls with the page. Width AND height are synced in explicit
+   pixels by GridNode: the 0×0 shadow host is the containing block, so percentages resolve to 0.
+   Pointer-transparent: a layout grid must never block interaction with the page. */
+.pixly-grid {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: var(--pixly-z-grid);
+  pointer-events: none;
+}
+
+.pixly-grid--hidden {
+  display: none;
+}
+
+.pixly-grid__frame {
+  position: relative;
+  height: 100%;
+  margin: 0 auto;
+  /* Extreme configs (gutters wider than the frame) clip instead of spilling outside the frame. */
+  overflow: hidden;
+}
+
+.pixly-grid__columns {
+  display: flex;
+  height: 100%;
+}
+
+.pixly-grid__column {
+  flex: 1 1 0;
+  /* Never let a column collapse to nothing: a sliver still shows where the grid is. */
+  min-width: 1px;
+  background: currentColor;
+}
+
+.pixly-grid__baseline {
+  position: absolute;
+  inset: 0;
+}
+
 /* ---- Image overlay node ---- */
 .pixly-overlay {
   --pixly-handle-size: 12px;

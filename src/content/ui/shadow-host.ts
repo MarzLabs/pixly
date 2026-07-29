@@ -9,8 +9,10 @@ import shadowStyles from './shadow-ui.css?inline';
  * overlay so its controls stay clickable.
  */
 const TOOLBAR_ABOVE_OVERLAY = 1;
+const OVERLAY_ABOVE_GRID = 1;
 const TOOLBAR_Z_INDEX = PIXLY_MAX_Z_INDEX;
 const OVERLAY_Z_INDEX = PIXLY_MAX_Z_INDEX - TOOLBAR_ABOVE_OVERLAY;
+const GRID_Z_INDEX = OVERLAY_Z_INDEX - OVERLAY_ABOVE_GRID;
 
 /**
  * Owns the single host element + Shadow DOM that contains ALL Pixly UI (toolbar, overlay, controls)
@@ -56,7 +58,8 @@ export class ShadowHost {
     styleEl.textContent =
       `:host {\n  ${tokensToCssVariables()}\n` +
       `  --pixly-z-toolbar: ${TOOLBAR_Z_INDEX};\n` +
-      `  --pixly-z-overlay: ${OVERLAY_Z_INDEX};\n}\n` +
+      `  --pixly-z-overlay: ${OVERLAY_Z_INDEX};\n` +
+      `  --pixly-z-grid: ${GRID_Z_INDEX};\n}\n` +
       shadowStyles;
     root.appendChild(styleEl);
 

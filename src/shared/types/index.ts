@@ -59,11 +59,34 @@ export interface GlobalOutlinesState {
   colorMode: OutlineColorMode;
 }
 
+/** Persisted state of the Grid Overlay tool (a Figma-style layout grid over the page). */
+export interface GridOverlayState {
+  /** Number of columns in the grid. */
+  columns: number;
+  /** Gap between columns, CSS pixels. */
+  gutterPx: number;
+  /** Horizontal padding between the grid frame and the viewport edges, CSS pixels. */
+  marginPx: number;
+  /** Frame max-width in CSS pixels; 0 means fluid (full viewport width). */
+  maxWidthPx: number;
+  /** 0..1 opacity of the whole grid. */
+  opacity: number;
+  /** Grid color as a #rrggbb hex string. */
+  color: string;
+  /** Whether the horizontal baseline grid is painted. */
+  showBaseline: boolean;
+  /** Baseline row height, CSS pixels. */
+  baselinePx: number;
+  /** Hidden grids keep their config but are not painted. */
+  hidden: boolean;
+}
+
 /** Discriminated map from tool id to its state shape. */
 export interface ToolStateMap {
   'fix-broken-images': FixBrokenImagesState;
   'image-overlay': OverlayState;
   'global-outlines': GlobalOutlinesState;
+  'grid-overlay': GridOverlayState;
 }
 
 /** Per-scope-key record of which tools are active and their serialized state. */

@@ -10,6 +10,8 @@ An extensible Chrome (Manifest V3) toolset for visual web development. Current t
 - **Global Outlines** — outlines every element on the page (colored by nesting depth, or a single
   color) to reveal the real layout structure. One reversible injected stylesheet, zero layout
   shift.
+- **Grid Overlay** — paints a Figma-style layout grid (columns, gutter, side margins, max-width,
+  optional baseline grid) over the page, pointer-transparent and scrolling with the content.
 
 Both tools persist per site and survive full reloads, and only activate where you turn them on. All
 of Pixly's own UI lives inside an isolated Shadow DOM, so it never pollutes the page.

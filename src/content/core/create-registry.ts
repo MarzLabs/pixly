@@ -1,5 +1,6 @@
 import { FixBrokenImagesTool } from '@content/tools/fix-broken-images/fix-broken-images-tool';
 import { GlobalOutlinesTool } from '@content/tools/global-outlines/global-outlines-tool';
+import { GridOverlayTool } from '@content/tools/grid-overlay/grid-overlay-tool';
 import { ImageOverlayTool } from '@content/tools/image-overlay/image-overlay-tool';
 import type { ToolContext } from './tool';
 import { ToolRegistry } from './tool-registry';
@@ -16,6 +17,7 @@ export function createRegistry(contextProvider: () => ToolContext): ToolRegistry
 
   registry.register(new FixBrokenImagesTool(contextProvider));
   registry.register(new ImageOverlayTool(contextProvider));
+  registry.register(new GridOverlayTool(contextProvider));
   registry.register(new GlobalOutlinesTool(contextProvider));
 
   return registry;

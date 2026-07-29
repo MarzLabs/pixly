@@ -69,6 +69,13 @@ export const TOOL_CATALOG: ToolCatalogEntry[] = [
     icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="13" height="13" rx="2"/><rect x="8" y="8" width="13" height="13" rx="2"/></svg>',
   },
   {
+    id: TOOL_ID.gridOverlay,
+    name: 'Grid Overlay',
+    description: 'Paint the layout grid (columns, gutters, baseline) over the page.',
+    scope: 'origin',
+    icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="4" height="18"/><rect x="10" y="3" width="4" height="18"/><rect x="17" y="3" width="4" height="18"/></svg>',
+  },
+  {
     id: TOOL_ID.globalOutlines,
     name: 'Global Outlines',
     description: 'Outline every element on the page to reveal the real layout structure.',
