@@ -114,7 +114,8 @@ body {
   color: var(--pixly-color-text-muted);
 }
 
-.config-field input[type='number'] {
+.config-field input[type='number'],
+.config-field select {
   width: 100%;
   padding: 6px 8px;
   background: var(--pixly-color-surface);

@@ -46,10 +46,24 @@ export interface FixBrokenImagesState {
   minSizePx: number;
 }
 
+/** Coloring strategies for the Global Outlines tool. */
+export const OUTLINE_COLOR_MODES = ['by-depth', 'single'] as const;
+
+export type OutlineColorMode = (typeof OUTLINE_COLOR_MODES)[number];
+
+/** Persisted state of the Global Outlines tool. */
+export interface GlobalOutlinesState {
+  /** Outline thickness in CSS pixels. */
+  widthPx: number;
+  /** 'by-depth' cycles a palette per nesting level; 'single' uses one fixed color. */
+  colorMode: OutlineColorMode;
+}
+
 /** Discriminated map from tool id to its state shape. */
 export interface ToolStateMap {
   'fix-broken-images': FixBrokenImagesState;
   'image-overlay': OverlayState;
+  'global-outlines': GlobalOutlinesState;
 }
 
 /** Per-scope-key record of which tools are active and their serialized state. */

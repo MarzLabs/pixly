@@ -14,15 +14,25 @@ import type { ToolScope } from '@shared/types';
  * persisted into the tool's state. Live controls (adjusted while watching the page) stay in the
  * in-page toolbar instead; this split keeps the on-page widget minimal.
  */
-export interface ToolConfigField {
+interface ToolConfigFieldBase {
   /** Key inside the tool's persisted state object. */
   key: string;
   label: string;
-  kind: 'number';
-  min?: number;
   /** Short explanation rendered under the input. */
   hint?: string;
 }
+
+export interface ToolConfigFieldNumber extends ToolConfigFieldBase {
+  kind: 'number';
+  min?: number;
+}
+
+export interface ToolConfigFieldSelect extends ToolConfigFieldBase {
+  kind: 'select';
+  options: ReadonlyArray<{ value: string; label: string }>;
+}
+
+export type ToolConfigField = ToolConfigFieldNumber | ToolConfigFieldSelect;
 
 export interface ToolCatalogEntry {
   id: ToolId;
@@ -57,5 +67,31 @@ export const TOOL_CATALOG: ToolCatalogEntry[] = [
     description: 'Overlay a design export to compare it pixel-by-pixel with the page.',
     scope: 'url',
     icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="13" height="13" rx="2"/><rect x="8" y="8" width="13" height="13" rx="2"/></svg>',
+  },
+  {
+    id: TOOL_ID.globalOutlines,
+    name: 'Global Outlines',
+    description: 'Outline every element on the page to reveal the real layout structure.',
+    scope: 'origin',
+    icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 2"><rect x="3" y="3" width="18" height="18" rx="1"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>',
+    configFields: [
+      {
+        key: 'widthPx',
+        label: 'Outline width (px)',
+        kind: 'number',
+        min: 1,
+        hint: 'Thickness of the outlines drawn around every element.',
+      },
+      {
+        key: 'colorMode',
+        label: 'Color mode',
+        kind: 'select',
+        options: [
+          { value: 'by-depth', label: 'By nesting depth' },
+          { value: 'single', label: 'Single color' },
+        ],
+        hint: 'By depth cycles a color palette per DOM level, making nesting visible.',
+      },
+    ],
   },
 ];

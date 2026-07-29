@@ -115,11 +115,11 @@ export function getToolConfigValue(
   scopeKey: string,
   toolId: ToolId,
   key: string,
-): number | undefined {
+): number | string | undefined {
   const state = config.scopes[scopeKey]?.states[toolId] as Record<string, unknown> | undefined;
   const value = state?.[key];
 
-  return typeof value === 'number' ? value : undefined;
+  return typeof value === 'number' || typeof value === 'string' ? value : undefined;
 }
 
 /** Writes a single primitive field into a tool's persisted state. No-op if the tool has no state yet. */
@@ -128,7 +128,7 @@ export function updateToolConfigValue(
   scopeKey: string,
   toolId: ToolId,
   key: string,
-  value: number,
+  value: number | string,
 ): PixlyConfig {
   const record = config.scopes[scopeKey];
   const state = record?.states[toolId];

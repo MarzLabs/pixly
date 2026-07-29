@@ -68,15 +68,15 @@ export function PopupApp() {
       return;
     }
 
-    const parsed = Number.parseInt(rawValue, 10);
+    const value = parseConfigValue(field, rawValue);
 
-    if (!Number.isFinite(parsed) || (field.min !== undefined && parsed < field.min)) {
+    if (value === null) {
       return;
     }
 
     const scopeKey = deriveScopeKey(href, entry.scope);
 
-    await saveConfig(updateToolConfigValue(config, scopeKey, entry.id, field.key, parsed));
+    await saveConfig(updateToolConfigValue(config, scopeKey, entry.id, field.key, value));
   }
 
   const activeFlags = useMemo(() => computeActiveFlags(config, href), [config, href]);
@@ -110,24 +110,15 @@ export function PopupApp() {
                   {entry.configFields.map((field) => (
                     <label key={field.key} class="config-field">
                       <span class="config-field__label">{field.label}</span>
-                      <input
-                        type="number"
-                        min={field.min}
-                        value={
-                          getToolConfigValue(
-                            config,
-                            deriveScopeKey(href, entry.scope),
-                            entry.id,
-                            field.key,
-                          ) ?? ''
-                        }
-                        onChange={(event) =>
-                          void changeConfigValue(
-                            entry,
-                            field,
-                            (event.target as HTMLInputElement).value,
-                          )
-                        }
+                      <ConfigFieldInput
+                        field={field}
+                        value={getToolConfigValue(
+                          config,
+                          deriveScopeKey(href, entry.scope),
+                          entry.id,
+                          field.key,
+                        )}
+                        onCommit={(rawValue) => void changeConfigValue(entry, field, rawValue)}
                       />
                       {field.hint && <span class="config-field__hint">{field.hint}</span>}
                     </label>
@@ -159,6 +150,54 @@ export function PopupApp() {
       </p>
     </div>
   );
+}
+
+interface ConfigFieldInputProps {
+  field: ToolConfigField;
+  value: number | string | undefined;
+  onCommit: (rawValue: string) => void;
+}
+
+/** Renders the input widget matching a declarative config field's kind (number or select). */
+function ConfigFieldInput({ field, value, onCommit }: ConfigFieldInputProps) {
+  if (field.kind === 'select') {
+    return (
+      <select
+        value={String(value ?? '')}
+        onChange={(event) => onCommit((event.target as HTMLSelectElement).value)}
+      >
+        {field.options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    );
+  }
+
+  return (
+    <input
+      type="number"
+      min={field.min}
+      value={value ?? ''}
+      onChange={(event) => onCommit((event.target as HTMLInputElement).value)}
+    />
+  );
+}
+
+/** Validates raw input against the field's kind; null means "reject the edit". */
+function parseConfigValue(field: ToolConfigField, rawValue: string): number | string | null {
+  if (field.kind === 'select') {
+    return field.options.some((option) => option.value === rawValue) ? rawValue : null;
+  }
+
+  const parsed = Number.parseInt(rawValue, 10);
+
+  if (!Number.isFinite(parsed) || (field.min !== undefined && parsed < field.min)) {
+    return null;
+  }
+
+  return parsed;
 }
 
 interface SwitchProps {

@@ -1,12 +1,15 @@
 # Pixly
 
-An extensible Chrome (Manifest V3) toolset for visual web development. v1 ships two tools:
+An extensible Chrome (Manifest V3) toolset for visual web development. Current tools:
 
 - **Fix Broken Images** — replaces broken `<img>` elements in place with same-size, same-shape SVG
   placeholders so the layout stays intact. Fully reversible.
 - **Image Overlay** — overlays a design export (e.g. a Figma PNG) on the real page with opacity,
   blend mode (including `difference`), position, scale, lock, and show/hide, to compare the design
   against the implementation pixel by pixel.
+- **Global Outlines** — outlines every element on the page (colored by nesting depth, or a single
+  color) to reveal the real layout structure. One reversible injected stylesheet, zero layout
+  shift.
 
 Both tools persist per site and survive full reloads, and only activate where you turn them on. All
 of Pixly's own UI lives inside an isolated Shadow DOM, so it never pollutes the page.

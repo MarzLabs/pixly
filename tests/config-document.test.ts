@@ -178,6 +178,29 @@ describe('tool config values (popup-edited fields)', () => {
     );
   });
 
+  it('reads and writes string fields (select config values)', () => {
+    // Arrange.
+    const initial = activateTool(createEmptyConfig(), ORIGIN_A, TOOL_ID.globalOutlines, {
+      widthPx: 1,
+      colorMode: 'by-depth',
+    });
+
+    // Act.
+    const updated = updateToolConfigValue(
+      initial,
+      ORIGIN_A,
+      TOOL_ID.globalOutlines,
+      'colorMode',
+      'single',
+    );
+
+    // Assert.
+    expect(getToolConfigValue(updated, ORIGIN_A, TOOL_ID.globalOutlines, 'colorMode')).toBe(
+      'single',
+    );
+    expect(getToolConfigValue(updated, ORIGIN_A, TOOL_ID.globalOutlines, 'widthPx')).toBe(1);
+  });
+
   it('is a no-op when the tool has no stored state yet', () => {
     // Arrange.
     const config = createEmptyConfig();
