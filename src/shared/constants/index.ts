@@ -4,6 +4,7 @@ export const TOOL_ID = {
   imageOverlay: 'image-overlay',
   globalOutlines: 'global-outlines',
   gridOverlay: 'grid-overlay',
+  rulersGuides: 'rulers-guides',
 } as const;
 
 export type ToolId = (typeof TOOL_ID)[keyof typeof TOOL_ID];

@@ -5,14 +5,12 @@ import shadowStyles from './shadow-ui.css?inline';
 /**
  * The host carries NO z-index on purpose: a z-index there forms a stacking context that would
  * isolate the overlay's mix-blend-mode from the page, leaving blend modes with nothing to blend
- * against. Each top-level UI node gets its own z-index instead — the toolbar one level above the
- * overlay so its controls stay clickable.
+ * against. Each top-level UI node gets its own z-index instead, derived from this single
+ * top-to-bottom stacking order (emitted as `--pixly-z-<name>` CSS variables):
+ * toolbar above everything, rulers/guides above the overlay so they stay grabbable, the grid
+ * underneath all Pixly UI.
  */
-const TOOLBAR_ABOVE_OVERLAY = 1;
-const OVERLAY_ABOVE_GRID = 1;
-const TOOLBAR_Z_INDEX = PIXLY_MAX_Z_INDEX;
-const OVERLAY_Z_INDEX = PIXLY_MAX_Z_INDEX - TOOLBAR_ABOVE_OVERLAY;
-const GRID_Z_INDEX = OVERLAY_Z_INDEX - OVERLAY_ABOVE_GRID;
+const Z_ORDER = ['toolbar', 'rulers', 'overlay', 'grid'] as const;
 
 /**
  * Owns the single host element + Shadow DOM that contains ALL Pixly UI (toolbar, overlay, controls)
@@ -55,12 +53,11 @@ export class ShadowHost {
     const root = host.attachShadow({ mode: 'open' });
 
     const styleEl = document.createElement('style');
-    styleEl.textContent =
-      `:host {\n  ${tokensToCssVariables()}\n` +
-      `  --pixly-z-toolbar: ${TOOLBAR_Z_INDEX};\n` +
-      `  --pixly-z-overlay: ${OVERLAY_Z_INDEX};\n` +
-      `  --pixly-z-grid: ${GRID_Z_INDEX};\n}\n` +
-      shadowStyles;
+    const zVariables = Z_ORDER.map(
+      (name, index) => `  --pixly-z-${name}: ${PIXLY_MAX_Z_INDEX - index};`,
+    ).join('\n');
+
+    styleEl.textContent = `:host {\n  ${tokensToCssVariables()}\n${zVariables}\n}\n` + shadowStyles;
     root.appendChild(styleEl);
 
     const layer = document.createElement('div');

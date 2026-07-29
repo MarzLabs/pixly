@@ -76,6 +76,13 @@ export const TOOL_CATALOG: ToolCatalogEntry[] = [
     icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="4" height="18"/><rect x="10" y="3" width="4" height="18"/><rect x="17" y="3" width="4" height="18"/></svg>',
   },
   {
+    id: TOOL_ID.rulersGuides,
+    name: 'Rulers & Guides',
+    description: 'Pixel rulers on the page edges with draggable, persistent guide lines.',
+    scope: 'url',
+    icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v5H3z"/><path d="M3 3v18h5V3"/><path d="M7 8v-2M11 8v-2M15 8v-2M19 8v-2M8 7h-2M8 11h-2M8 15h-2M8 19h-2"/></svg>',
+  },
+  {
     id: TOOL_ID.globalOutlines,
     name: 'Global Outlines',
     description: 'Outline every element on the page to reveal the real layout structure.',

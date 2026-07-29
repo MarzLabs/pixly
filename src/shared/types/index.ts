@@ -81,12 +81,29 @@ export interface GridOverlayState {
   hidden: boolean;
 }
 
+/** Orientation of a guide line: vertical guides mark an x position, horizontal ones a y. */
+export type GuideAxis = 'vertical' | 'horizontal';
+
+/** A single draggable guide line, positioned in document coordinates (scrolls with the page). */
+export interface GuideLine {
+  axis: GuideAxis;
+  positionPx: number;
+}
+
+/** Persisted state of the Rulers & Guides tool. */
+export interface RulersGuidesState {
+  /** Whether the edge rulers are painted; guides stay visible regardless. */
+  rulersVisible: boolean;
+  guides: GuideLine[];
+}
+
 /** Discriminated map from tool id to its state shape. */
 export interface ToolStateMap {
   'fix-broken-images': FixBrokenImagesState;
   'image-overlay': OverlayState;
   'global-outlines': GlobalOutlinesState;
   'grid-overlay': GridOverlayState;
+  'rulers-guides': RulersGuidesState;
 }
 
 /** Per-scope-key record of which tools are active and their serialized state. */

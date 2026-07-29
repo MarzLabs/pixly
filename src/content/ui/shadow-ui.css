@@ -298,6 +298,105 @@
   inset: 0;
 }
 
+/* ---- Rulers & guides ---- */
+
+/* Viewport-fixed measuring strips; content (background, ticks, labels) is canvas-painted.
+   Thickness is mirrored by RULER_THICKNESS_PX in ruler-geometry.ts. */
+.pixly-ruler {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: var(--pixly-z-rulers);
+  pointer-events: auto;
+}
+
+.pixly-ruler--top {
+  cursor: row-resize;
+}
+
+.pixly-ruler--left {
+  cursor: col-resize;
+}
+
+.pixly-ruler--hidden {
+  display: none;
+}
+
+/* Square where both rulers meet; painted like the rulers so they read as one frame. */
+.pixly-rulers-corner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 20px;
+  height: 20px;
+  z-index: var(--pixly-z-rulers);
+  background: var(--pixly-color-surface);
+  border-right: 1px solid var(--pixly-color-border);
+  border-bottom: 1px solid var(--pixly-color-border);
+  pointer-events: auto;
+}
+
+/* Document-anchored layer sized in explicit pixels by RulersGuidesNode (0×0 host caveat). */
+.pixly-guides-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: var(--pixly-z-rulers);
+  pointer-events: none;
+}
+
+/* A guide is a 5px grab area with a 1px line centered inside (constants mirrored in the node). */
+.pixly-guide {
+  position: absolute;
+  pointer-events: auto;
+}
+
+.pixly-guide--vertical {
+  top: 0;
+  height: 100%;
+  width: 5px;
+  cursor: col-resize;
+}
+
+.pixly-guide--vertical::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2px;
+  width: 1px;
+  background: currentColor;
+}
+
+.pixly-guide--horizontal {
+  left: 0;
+  width: 100%;
+  height: 5px;
+  cursor: row-resize;
+}
+
+.pixly-guide--horizontal::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 2px;
+  height: 1px;
+  background: currentColor;
+}
+
+/* Position readout shown while dragging a guide. */
+.pixly-guide__label {
+  position: absolute;
+  padding: 2px 5px;
+  background: var(--pixly-color-surface);
+  border: 1px solid var(--pixly-color-border);
+  border-radius: var(--pixly-radius-small);
+  color: var(--pixly-color-text);
+  font-size: var(--pixly-font-size-sm);
+  white-space: nowrap;
+}
+
 /* ---- Image overlay node ---- */
 .pixly-overlay {
   --pixly-handle-size: 12px;
