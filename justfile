@@ -67,7 +67,7 @@ clean:
 clean-all: clean
     rm -rf node_modules
 
-# Build and zip dist/ for distribution (e.g. Chrome Web Store upload)
+# 6. Empaqueta para la Chrome Web Store
 zip: build
     cd dist && zip -r ../pixly.zip . -x '.*'
     @echo "Created pixly.zip"
