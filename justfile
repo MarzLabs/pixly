@@ -73,3 +73,20 @@ load-unpacked: build
     @echo "2. Enable Developer mode (top-right toggle)"
     @echo "3. Click 'Load unpacked' and select the dist/ folder"
     @echo "4. Pin Pixly from the extensions menu"
+
+# Bump package.json/package-lock.json and stage them, no commit.
+# Usage: `just bump` (patch), `just bump minor`, `just bump major`, or `just bump 1.2.3`
+bump version="patch":
+    npm version {{version}} --no-git-tag-version
+    git add package.json package-lock.json
+    @echo "Bumped to $(node -p "require('./package.json').version") — staged. Run 'just release-commit \"summary\"' or commit manually."
+
+# Commit a staged version bump with the repo's release message convention
+release-commit summary:
+    git commit -m "chore(release): Bump version to $(node -p "require('./package.json').version")" -m "{{summary}}"
+
+# Full release flow: verify, bump, and commit. Push is left to you.
+# Usage: just release minor "Summary of what changed since last release"
+release version summary: check
+    just bump {{version}}
+    just release-commit "{{summary}}"
