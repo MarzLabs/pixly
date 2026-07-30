@@ -28,31 +28,47 @@ function createStubContext(): { ctx: CanvasRenderingContext2D; calls: string[] }
     lineWidth: 0,
     lineCap: '',
     lineJoin: '',
+    font: '',
+    textAlign: '',
+    textBaseline: '',
+    shadowColor: '',
+    shadowBlur: 0,
     beginPath: record('beginPath'),
     moveTo: record('moveTo'),
     lineTo: record('lineTo'),
     rect: record('rect'),
     ellipse: record('ellipse'),
     stroke: record('stroke'),
+    fillText: record('fillText'),
+    save: record('save'),
+    restore: record('restore'),
   };
 
   return { ctx: stub as unknown as CanvasRenderingContext2D, calls };
 }
 
-function buildAnnotation(toolId: string): Annotation {
-  return {
+function buildAnnotation(toolId: string, text?: string): Annotation {
+  const annotation: Annotation = {
     toolId,
     start: { x: 10, y: 10 },
     end: { x: 90, y: 50 },
     style: { color: '#3B82F6', strokeWidthPx: 5 },
   };
+
+  if (text !== undefined) {
+    annotation.text = text;
+  }
+
+  return annotation;
 }
 
 describe('annotation tool registry', () => {
-  it('registers at least arrow, line, rect and ellipse', () => {
+  it('registers at least arrow, line, rect, ellipse, text and emoji', () => {
     const ids = ANNOTATION_TOOLS.map((tool) => tool.id);
 
-    expect(ids).toEqual(expect.arrayContaining(['arrow', 'line', 'rect', 'ellipse']));
+    expect(ids).toEqual(
+      expect.arrayContaining(['arrow', 'line', 'rect', 'ellipse', 'text', 'emoji']),
+    );
   });
 
   it('has unique ids and toolbar metadata for every tool', () => {
@@ -76,18 +92,76 @@ describe('annotation tool registry', () => {
     expect(isAnnotationToolId('laser-pointer')).toBe(false);
   });
 
-  it('every tool strokes with the annotation style, not a hardcoded one', () => {
+  it('every tool paints with the annotation style, not a hardcoded one', () => {
     for (const tool of ANNOTATION_TOOLS) {
       const { ctx, calls } = createStubContext();
-      const annotation = buildAnnotation(tool.id);
+      const annotation = buildAnnotation(tool.id, 'Aa');
 
       tool.render(ctx, annotation);
 
-      expect(ctx.strokeStyle, tool.id).toBe('#3B82F6');
-      expect(ctx.lineWidth, tool.id).toBe(5);
-      expect(calls, tool.id).toContain('beginPath');
-      expect(calls, tool.id).toContain('stroke');
+      if ((tool.interaction ?? 'drag') === 'drag') {
+        expect(ctx.strokeStyle, tool.id).toBe('#3B82F6');
+        expect(ctx.lineWidth, tool.id).toBe(5);
+        expect(calls, tool.id).toContain('beginPath');
+        expect(calls, tool.id).toContain('stroke');
+      } else {
+        expect(calls, tool.id).toContain('fillText');
+      }
     }
+  });
+
+  it('stamp tools declare a non-empty glyph palette', () => {
+    for (const tool of ANNOTATION_TOOLS) {
+      if (tool.interaction === 'stamp') {
+        expect(tool.glyphs?.length ?? 0, tool.id).toBeGreaterThan(0);
+      }
+    }
+  });
+});
+
+describe('TextTool', () => {
+  const textTool = ANNOTATION_TOOLS.find((tool) => tool.id === 'text');
+
+  it('renders one line per explicit newline, in the annotation color', () => {
+    const { ctx, calls } = createStubContext();
+
+    textTool?.render(ctx, buildAnnotation('text', 'first\nsecond'));
+
+    expect(calls.filter((call) => call === 'fillText')).toHaveLength(2);
+    expect(ctx.fillStyle).toBe('#3B82F6');
+    // save/restore isolate the shadow + font so the next annotation is unaffected.
+    expect(calls).toContain('save');
+    expect(calls).toContain('restore');
+  });
+
+  it('draws nothing for empty or missing text', () => {
+    for (const text of [undefined, '', '   \n  ']) {
+      const { ctx, calls } = createStubContext();
+
+      textTool?.render(ctx, buildAnnotation('text', text));
+      expect(calls, JSON.stringify(text)).not.toContain('fillText');
+    }
+  });
+});
+
+describe('EmojiTool', () => {
+  const emojiTool = ANNOTATION_TOOLS.find((tool) => tool.id === 'emoji');
+
+  it('stamps the glyph centered on the click point', () => {
+    const { ctx, calls } = createStubContext();
+
+    emojiTool?.render(ctx, buildAnnotation('emoji', '🔥'));
+
+    expect(calls.filter((call) => call === 'fillText')).toHaveLength(1);
+    expect(ctx.textAlign).toBe('center');
+    expect(ctx.textBaseline).toBe('middle');
+  });
+
+  it('draws nothing without a glyph', () => {
+    const { ctx, calls } = createStubContext();
+
+    emojiTool?.render(ctx, buildAnnotation('emoji'));
+    expect(calls).not.toContain('fillText');
   });
 });
 

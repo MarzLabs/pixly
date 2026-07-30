@@ -1,8 +1,10 @@
 import type { AnnotationToolSpec } from './annotation-tool';
 import { ArrowTool } from './arrow-tool';
 import { EllipseTool } from './ellipse-tool';
+import { EmojiTool } from './emoji-tool';
 import { LineTool } from './line-tool';
 import { RectTool } from './rect-tool';
+import { TextTool } from './text-tool';
 
 /**
  * The annotation tool registry. The editor toolbar, the canvas renderer and the state sanitizer
@@ -14,6 +16,8 @@ export const ANNOTATION_TOOLS: readonly AnnotationToolSpec[] = [
   LineTool,
   RectTool,
   EllipseTool,
+  TextTool,
+  EmojiTool,
 ];
 
 /** The arrow doubles as the default for fresh state and unknown persisted ids. */

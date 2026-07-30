@@ -1,4 +1,9 @@
-import type { Annotation, AnnotationPoint } from './annotation-tools/annotation-tool';
+import { DESIGN_TOKENS } from '@shared/constants/design-tokens';
+import type {
+  Annotation,
+  AnnotationInteraction,
+  AnnotationPoint,
+} from './annotation-tools/annotation-tool';
 import { ANNOTATION_TOOLS, getAnnotationTool } from './annotation-tools';
 import { dragDistance, MIN_DRAG_DISTANCE_PX } from './annotation-geometry';
 import {
@@ -8,6 +13,7 @@ import {
   STROKE_WIDTH_PRESETS_PX,
 } from './capture-annotate-state';
 import { composeAnnotatedCapture } from './capture-export';
+import { textFontSizePx, textLineHeightPx } from './text-metrics';
 
 /** Everything the editor needs about the capture it is annotating. */
 export interface CaptureSession {
@@ -43,16 +49,22 @@ export interface AnnotationEditorCallbacks {
 export class AnnotationEditor {
   private readonly root: HTMLDivElement;
   private readonly canvas: HTMLCanvasElement;
+  private readonly canvasWrap: HTMLDivElement;
+  private readonly glyphBar: HTMLDivElement;
   private readonly ctx: CanvasRenderingContext2D | null;
   private readonly feedbackEl: HTMLSpanElement;
   private readonly toolButtons = new Map<string, HTMLButtonElement>();
   private readonly colorButtons = new Map<string, HTMLButtonElement>();
   private readonly widthButtons = new Map<number, HTMLButtonElement>();
+  /** Selected glyph per stamp tool (session-only); defaults to the tool's first glyph. */
+  private readonly selectedGlyphs = new Map<string, string>();
 
   private readonly annotations: Annotation[] = [];
   private selection: EditorStyleSelection;
   /** In-flight drag: start point plus the latest preview end point. */
   private draft: { start: AnnotationPoint; end: AnnotationPoint } | null = null;
+  /** Open inline text entry ('text' interaction); committed on Enter/blur, cancelled on Esc. */
+  private textDraft: { point: AnnotationPoint; input: HTMLTextAreaElement } | null = null;
   private exporting = false;
 
   /** CSS-pixel size of the screenshot, the coordinate space annotations live in. */
@@ -81,11 +93,20 @@ export class AnnotationEditor {
     this.canvas.style.width = `${this.cssWidth}px`;
     this.ctx = this.canvas.getContext('2d');
 
+    // Positioned wrapper so the inline text input can sit at the click point over the canvas.
+    this.canvasWrap = document.createElement('div');
+    this.canvasWrap.className = 'pixly-capture-editor__canvas-wrap';
+    this.canvasWrap.appendChild(this.canvas);
+
+    this.glyphBar = document.createElement('div');
+    this.glyphBar.className = 'pixly-capture-editor__glyphbar';
+
     this.feedbackEl = document.createElement('span');
     this.feedbackEl.className = 'pixly-feedback';
     this.feedbackEl.textContent = 'Drag on the capture to draw.';
 
     this.root.appendChild(this.buildTopbar());
+    this.root.appendChild(this.glyphBar);
     this.root.appendChild(this.buildStage());
     this.root.appendChild(this.buildStatusbar());
     parent.appendChild(this.root);
@@ -104,6 +125,8 @@ export class AnnotationEditor {
   }
 
   destroy(): void {
+    // Discarded, not committed: destroy() must never paint on the about-to-close bitmap.
+    this.cancelTextDraft();
     window.removeEventListener('keydown', this.onKeyDown, true);
     this.root.remove();
     this.session.bitmap.close();
@@ -223,7 +246,7 @@ export class AnnotationEditor {
   private buildStage(): HTMLElement {
     const stage = document.createElement('div');
     stage.className = 'pixly-capture-editor__stage';
-    stage.appendChild(this.canvas);
+    stage.appendChild(this.canvasWrap);
 
     return stage;
   }
@@ -300,6 +323,57 @@ export class AnnotationEditor {
     for (const [widthPx, button] of this.widthButtons) {
       button.classList.toggle('pixly-tab--active', widthPx === this.selection.strokeWidthPx);
     }
+
+    const interaction = this.activeInteraction();
+    this.canvas.style.cursor =
+      interaction === 'text' ? 'text' : interaction === 'stamp' ? 'copy' : 'crosshair';
+    this.refreshGlyphBar();
+  }
+
+  /** Gesture the active tool needs; tools without a declared interaction are drag-shaped. */
+  private activeInteraction(): AnnotationInteraction {
+    return getAnnotationTool(this.selection.toolId)?.interaction ?? 'drag';
+  }
+
+  /** Currently selected glyph for the active stamp tool, defaulting to its first choice. */
+  private activeGlyph(): string | null {
+    const tool = getAnnotationTool(this.selection.toolId);
+    const glyphs = tool?.glyphs ?? [];
+
+    if (!tool || glyphs.length === 0) {
+      return null;
+    }
+
+    return this.selectedGlyphs.get(tool.id) ?? glyphs[0] ?? null;
+  }
+
+  /** Secondary palette row for stamp tools (e.g. the emoji set); hidden for the rest. */
+  private refreshGlyphBar(): void {
+    const tool = getAnnotationTool(this.selection.toolId);
+    const glyphs = tool?.glyphs ?? [];
+
+    this.glyphBar.classList.toggle('pixly-capture-editor__glyphbar--hidden', glyphs.length === 0);
+    this.glyphBar.replaceChildren();
+
+    if (!tool || glyphs.length === 0) {
+      return;
+    }
+
+    const active = this.activeGlyph();
+
+    for (const glyph of glyphs) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'pixly-tab pixly-capture-glyph';
+      button.textContent = glyph;
+      button.title = `Stamp ${glyph}`;
+      button.classList.toggle('pixly-tab--active', glyph === active);
+      button.addEventListener('click', () => {
+        this.selectedGlyphs.set(tool.id, glyph);
+        this.refreshGlyphBar();
+      });
+      this.glyphBar.appendChild(button);
+    }
   }
 
   // ---- Drawing ----------------------------------------------------------
@@ -311,8 +385,35 @@ export class AnnotationEditor {
       }
 
       event.preventDefault();
-      this.canvas.setPointerCapture(event.pointerId);
+
+      // A click outside an open text entry commits it; that click places nothing else.
+      if (this.textDraft) {
+        this.commitTextDraft();
+
+        return;
+      }
+
       const point = this.toCanvasPoint(event);
+      const interaction = this.activeInteraction();
+
+      if (interaction === 'text') {
+        this.openTextDraft(point);
+
+        return;
+      }
+
+      if (interaction === 'stamp') {
+        const glyph = this.activeGlyph();
+
+        if (glyph) {
+          this.annotations.push(this.buildAnnotation(point, point, glyph));
+          this.repaint();
+        }
+
+        return;
+      }
+
+      this.canvas.setPointerCapture(event.pointerId);
       this.draft = { start: point, end: point };
     });
 
@@ -349,13 +450,103 @@ export class AnnotationEditor {
     this.canvas.addEventListener('pointercancel', (event) => finish(event, false));
   }
 
-  private buildAnnotation(start: AnnotationPoint, end: AnnotationPoint): Annotation {
-    return {
+  private buildAnnotation(start: AnnotationPoint, end: AnnotationPoint, text?: string): Annotation {
+    const annotation: Annotation = {
       toolId: this.selection.toolId,
       start,
       end,
       style: { color: this.selection.color, strokeWidthPx: this.selection.strokeWidthPx },
     };
+
+    if (text !== undefined) {
+      annotation.text = text;
+    }
+
+    return annotation;
+  }
+
+  // ---- Inline text entry ------------------------------------------------
+
+  /**
+   * Opens the inline entry for a 'text' tool at the clicked point. The textarea mirrors the
+   * committed render (font scaled by the canvas display scale, no soft wrap: only explicit
+   * newlines break lines), so what the user types is what lands on the capture.
+   */
+  private openTextDraft(point: AnnotationPoint): void {
+    const scale = this.displayScale();
+    const fontSizePx = textFontSizePx(this.selection.strokeWidthPx);
+    const lineHeightPx = textLineHeightPx(fontSizePx);
+
+    const input = document.createElement('textarea');
+    input.className = 'pixly-capture-editor__textinput';
+    input.rows = 1;
+    input.wrap = 'off';
+    input.placeholder = 'Type — Enter commits, Shift+Enter breaks the line';
+    input.style.left = `${point.x * scale}px`;
+    input.style.top = `${point.y * scale}px`;
+    input.style.fontFamily = DESIGN_TOKENS.fontFamily;
+    input.style.fontSize = `${fontSizePx * scale}px`;
+    input.style.lineHeight = `${lineHeightPx * scale}px`;
+    input.style.color = this.selection.color;
+
+    const autoSize = (): void => {
+      // Collapse first so scrollWidth/scrollHeight report the content, not the previous box.
+      input.style.width = '0';
+      input.style.height = '0';
+      input.style.width = `${Math.max(160, input.scrollWidth + 8)}px`;
+      input.style.height = `${Math.max(lineHeightPx * scale, input.scrollHeight)}px`;
+    };
+
+    input.addEventListener('input', autoSize);
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.commitTextDraft();
+      }
+    });
+    input.addEventListener('blur', () => this.commitTextDraft());
+
+    this.canvasWrap.appendChild(input);
+    this.textDraft = { point, input };
+    input.focus();
+    autoSize();
+  }
+
+  private commitTextDraft(): void {
+    const draft = this.textDraft;
+
+    if (!draft) {
+      return;
+    }
+
+    // Cleared BEFORE removal so the removal-triggered blur finds nothing to commit again.
+    this.textDraft = null;
+    const text = draft.input.value.replace(/\s+$/u, '');
+    draft.input.remove();
+
+    if (text.trim().length > 0) {
+      this.annotations.push(this.buildAnnotation(draft.point, draft.point, text));
+      this.repaint();
+    }
+  }
+
+  private cancelTextDraft(): void {
+    const draft = this.textDraft;
+
+    if (!draft) {
+      return;
+    }
+
+    this.textDraft = null;
+    draft.input.remove();
+  }
+
+  /** On-screen CSS pixels per capture CSS pixel (the stage may scale the canvas down to fit). */
+  private displayScale(): number {
+    const rect = this.canvas.getBoundingClientRect();
+
+    return rect.width > 0 && this.cssWidth > 0 ? rect.width / this.cssWidth : 1;
   }
 
   /**
@@ -421,12 +612,25 @@ export class AnnotationEditor {
     if (event.key === 'Escape') {
       event.preventDefault();
       event.stopPropagation();
+
+      // Esc backs out one layer at a time: first the open text entry, then the editor.
+      if (this.textDraft) {
+        this.cancelTextDraft();
+
+        return;
+      }
+
       this.callbacks.onClose();
 
       return;
     }
 
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+      // While typing, Ctrl+Z belongs to the textarea's native undo, not annotation history.
+      if (this.textDraft) {
+        return;
+      }
+
       event.preventDefault();
       event.stopPropagation();
       this.undo();

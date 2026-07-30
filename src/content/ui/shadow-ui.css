@@ -661,6 +661,44 @@
   background: currentColor;
 }
 
+/* Secondary palette row for stamp tools (e.g. the emoji set); hidden for the other tools. */
+.pixly-capture-editor__glyphbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pixly-spacing-xs);
+  padding: var(--pixly-spacing-xs) var(--pixly-spacing-md);
+  background: var(--pixly-color-surface);
+  border-bottom: 1px solid var(--pixly-color-border);
+}
+
+.pixly-capture-editor__glyphbar--hidden {
+  display: none;
+}
+
+/* An emoji glyph inside a pixly-tab button. */
+.pixly-capture-glyph {
+  font-size: 15px;
+  line-height: 1;
+}
+
+/* Inline text entry over the canvas; committed on Enter/blur, cancelled on Esc. Mirrors the
+   rendered label (weight, explicit-newlines-only wrapping); color and font size are set inline. */
+.pixly-capture-editor__textinput {
+  position: absolute;
+  min-width: 160px;
+  margin: 0;
+  padding: 0 2px;
+  background: rgba(10, 10, 12, 0.45);
+  border: 1px dashed currentColor;
+  border-radius: var(--pixly-radius-small);
+  font-family: var(--pixly-font-family);
+  font-weight: 600;
+  white-space: pre;
+  resize: none;
+  overflow: hidden;
+  outline: none;
+}
+
 /* Scrollable stage: captures larger than the window scale down (canvas max-width) or scroll. */
 .pixly-capture-editor__stage {
   flex: 1;
@@ -671,6 +709,12 @@
   padding: var(--pixly-spacing-lg);
 }
 
+/* Positioned shell around the canvas so the inline text entry can sit at the click point. */
+.pixly-capture-editor__canvas-wrap {
+  position: relative;
+  max-width: 100%;
+}
+
 /* The canvas keeps its intrinsic aspect ratio; height follows the width attribute ratio. */
 .pixly-capture-editor__canvas {
   display: block;
@@ -679,6 +723,84 @@
   cursor: crosshair;
   touch-action: none;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+}
+
+/* ---- Capture pickers (area marquee / element highlight) ---- */
+
+/* Full-viewport surface that owns the pointer while a scoped capture is being selected. */
+.pixly-capture-picker {
+  position: fixed;
+  inset: 0;
+  z-index: var(--pixly-z-editor);
+  pointer-events: auto;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+/* Instruction chip, top-center, out of the way of the selection itself. */
+.pixly-capture-picker__hint {
+  position: absolute;
+  top: var(--pixly-spacing-md);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 10px;
+  background: var(--pixly-color-surface);
+  border: 1px solid var(--pixly-color-border);
+  border-radius: var(--pixly-radius-medium);
+  color: var(--pixly-color-text);
+  font-family: var(--pixly-font-family);
+  font-size: var(--pixly-font-size-sm);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Drag marquee for area captures; hidden until the drag starts. */
+.pixly-capture-marquee {
+  display: none;
+  position: fixed;
+  border: 1px dashed var(--pixly-color-brand);
+  background: rgba(249, 115, 22, 0.12);
+  pointer-events: none;
+}
+
+/* Live size readout pinned to the marquee's bottom-right corner. */
+.pixly-capture-marquee__label {
+  position: absolute;
+  right: 0;
+  bottom: -4px;
+  transform: translateY(100%);
+  padding: 2px 5px;
+  background: var(--pixly-color-surface);
+  border: 1px solid var(--pixly-color-border);
+  border-radius: var(--pixly-radius-small);
+  color: var(--pixly-color-text);
+  font-family: var(--pixly-font-family);
+  font-size: var(--pixly-font-size-sm);
+  white-space: nowrap;
+}
+
+/* Box over the element the picker is pointing at; hidden until something is hovered. */
+.pixly-capture-highlight {
+  display: none;
+  position: fixed;
+  border: 2px solid var(--pixly-color-brand);
+  background: rgba(249, 115, 22, 0.1);
+  pointer-events: none;
+}
+
+/* DevTools-style identity chip naming the hovered element; sits above the highlight box. */
+.pixly-capture-highlight__tag {
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  transform: translateY(-100%);
+  padding: 1px 5px;
+  background: var(--pixly-color-brand);
+  border-radius: var(--pixly-radius-small) var(--pixly-radius-small) 0 0;
+  color: #08130b;
+  font-family: var(--pixly-font-family);
+  font-size: 10px;
+  white-space: nowrap;
 }
 
 /* Feedback on the left, the provenance that will be embedded on export on the right. */

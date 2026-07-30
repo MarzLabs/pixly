@@ -21,10 +21,11 @@ An extensible Chrome (Manifest V3) toolset for visual web development. Current t
 - **Snapshot & Compare** — capture the visible viewport and lay it back over the page in
   `difference` blend: identical pixels turn black, anything that changed since the capture
   glows. Captures persist per page with when/title/URL provenance.
-- **Capture & Annotate** — capture the visible viewport and mark it up with arrows, lines,
-  rectangles and ellipses in a full-screen editor, then download or copy the PNG. The export
-  embeds the page title, URL and capture time in a provenance header. Annotation tools are
-  pluggable modules, so adding a new shape is a single file plus one registry entry.
+- **Capture & Annotate** — capture the visible viewport, a dragged area or a single element
+  (DevTools-style picker), and mark it up with arrows, lines, rectangles, ellipses, text labels
+  and emoji stamps in a full-screen editor, then download or copy the PNG. The export embeds the
+  page title, URL and capture time in a provenance header. Annotation tools are pluggable
+  modules, so adding a new shape is a single file plus one registry entry.
 
 Both tools persist per site and survive full reloads, and only activate where you turn them on. All
 of Pixly's own UI lives inside an isolated Shadow DOM, so it never pollutes the page.
