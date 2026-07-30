@@ -18,8 +18,7 @@ export const DESIGN_TOKENS = {
   spacingSm: '8px',
   spacingMd: '12px',
   spacingLg: '16px',
-  fontFamily:
-    "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
   fontSizeSm: '12px',
   fontSizeMd: '13px',
   fontSizeLg: '15px',

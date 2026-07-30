@@ -102,15 +102,15 @@ navegador.
 Cada herramienta es un módulo autocontenido que se **registra** en Pixly declarando, como
 mínimo:
 
-| Propiedad | Descripción |
-|---|---|
-| `id` | Identificador único y estable (p. ej. `fix-broken-images`, `image-overlay`). |
-| `name` | Nombre visible en la UI (inglés). |
-| `description` | Descripción corta para el popup. |
-| `icon` | Ícono representativo. |
-| `scope` | Alcance de persistencia: `origin` o `url` (ver §5). |
-| `defaultState` | Estado inicial de la herramienta. |
-| Ciclo de vida | `activate()`, `deactivate()`, `renderControls()`, `serializeState()`, `restoreState()`. |
+| Propiedad      | Descripción                                                                             |
+| -------------- | --------------------------------------------------------------------------------------- |
+| `id`           | Identificador único y estable (p. ej. `fix-broken-images`, `image-overlay`).            |
+| `name`         | Nombre visible en la UI (inglés).                                                       |
+| `description`  | Descripción corta para el popup.                                                        |
+| `icon`         | Ícono representativo.                                                                   |
+| `scope`        | Alcance de persistencia: `origin` o `url` (ver §5).                                     |
+| `defaultState` | Estado inicial de la herramienta.                                                       |
+| Ciclo de vida  | `activate()`, `deactivate()`, `renderControls()`, `serializeState()`, `restoreState()`. |
 
 El popup y la toolbar in-page se **construyen dinámicamente a partir del registry**: agregar
 una herramienta nueva = registrar un módulo, sin tocar el núcleo ni la UI compartida.
@@ -159,14 +159,15 @@ forma explícita (p. ej. ocultar una imagen rota). Toda mutación de ese tipo de
 
 Cada herramienta declara su **scope** de persistencia:
 
-| Scope | Clave | Uso | Herramienta v1 |
-|---|---|---|---|
-| `origin` | `scheme://host:port` | El efecto aplica a todo el origen (todas las rutas). | **Fix Broken Images** |
-| `url` | URL completa (sin hash) | El efecto aplica a una página/ruta específica. | **Image Overlay** |
+| Scope    | Clave                   | Uso                                                  | Herramienta v1        |
+| -------- | ----------------------- | ---------------------------------------------------- | --------------------- |
+| `origin` | `scheme://host:port`    | El efecto aplica a todo el origen (todas las rutas). | **Fix Broken Images** |
+| `url`    | URL completa (sin hash) | El efecto aplica a una página/ruta específica.       | **Image Overlay**     |
 
 **Justificación:**
-- *Fix Broken Images* es útil de forma transversal en todo un sitio → `origin`.
-- *Image Overlay* compara un **diseño específico contra una pantalla específica**; un overlay
+
+- _Fix Broken Images_ es útil de forma transversal en todo un sitio → `origin`.
+- _Image Overlay_ compara un **diseño específico contra una pantalla específica**; un overlay
   no tiene sentido replicado en todas las rutas del origen → `url`.
 
 > Esta granularidad es una **decisión de diseño recomendada**; ver
@@ -317,15 +318,15 @@ Formatos: imágenes raster comunes (PNG, JPG, WEBP) y SVG. La imagen se persiste
 
 ### 7.3 Controles
 
-| Control | Descripción | Rango / valores |
-|---|---|---|
-| **Opacity** | Transparencia del overlay. | 0–100% |
-| **Blend mode** | `mix-blend-mode` del overlay sobre la página. | `normal`, `multiply`, `screen`, `overlay`, `difference`, `exclusion`, … (incluye **`difference`**, el modo clásico para comparación pixel-perfect). |
-| **Position** | Desplazamiento X/Y. Arrastre directo + entrada numérica + **nudge** con flechas del teclado (1px; con modificador, 10px). | px |
-| **Scale** | Escala del overlay (p. ej. exports a 2x). | % o factor |
-| **Lock** | Cuando está **locked**, el overlay no intercepta el puntero (`pointer-events: none`) y el usuario interactúa con la página debajo. Cuando está **unlocked**, el overlay es arrastrable. | on/off |
-| **Show / Hide** | Oculta el overlay sin removerlo (conserva configuración e imagen). | on/off |
-| **Replace / Remove** | Cambiar la imagen o quitar el overlay por completo. | — |
+| Control              | Descripción                                                                                                                                                                             | Rango / valores                                                                                                                                     |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Opacity**          | Transparencia del overlay.                                                                                                                                                              | 0–100%                                                                                                                                              |
+| **Blend mode**       | `mix-blend-mode` del overlay sobre la página.                                                                                                                                           | `normal`, `multiply`, `screen`, `overlay`, `difference`, `exclusion`, … (incluye **`difference`**, el modo clásico para comparación pixel-perfect). |
+| **Position**         | Desplazamiento X/Y. Arrastre directo + entrada numérica + **nudge** con flechas del teclado (1px; con modificador, 10px).                                                               | px                                                                                                                                                  |
+| **Scale**            | Escala del overlay (p. ej. exports a 2x).                                                                                                                                               | % o factor                                                                                                                                          |
+| **Lock**             | Cuando está **locked**, el overlay no intercepta el puntero (`pointer-events: none`) y el usuario interactúa con la página debajo. Cuando está **unlocked**, el overlay es arrastrable. | on/off                                                                                                                                              |
+| **Show / Hide**      | Oculta el overlay sin removerlo (conserva configuración e imagen).                                                                                                                      | on/off                                                                                                                                              |
+| **Replace / Remove** | Cambiar la imagen o quitar el overlay por completo.                                                                                                                                     | —                                                                                                                                                   |
 
 ### 7.4 Posicionamiento e interacción
 
@@ -336,7 +337,7 @@ Formatos: imágenes raster comunes (PNG, JPG, WEBP) y SVG. La imagen se persiste
 - **RF-OVL-1 (Drag con pointer capture):** el arrastre del overlay **debe** implementarse con
   **Pointer Events + `setPointerCapture`** sobre el elemento del overlay. No usar listeners de
   `mouse*` a nivel `document`: estos pierden el `mouseup` y provocan que el overlay siga
-  "fantasma" al cursor (y se vaya al top-left). *(Lección ya registrada en el proyecto.)*
+  "fantasma" al cursor (y se vaya al top-left). _(Lección ya registrada en el proyecto.)_
 - Si la imagen es mayor que el viewport, se puede arrastrar para inspeccionar distintas zonas.
 
 ### 7.5 Persistencia
@@ -391,9 +392,9 @@ A nivel funcional, Pixly requiere:
 
 - **Almacenamiento local** para persistir estado e imágenes (`storage`, IndexedDB).
 - **Acceso a las páginas donde el usuario activa herramientas** (content scripts / `scripting`
-  + host permissions). Se prefiere un modelo que **minimice permisos**: idealmente activar el
-  acceso por sitio bajo demanda (p. ej. `activeTab` + concesión por sitio) en vez de
-  `<all_urls>` permanente, coherente con "solo donde el usuario lo activó".
+  - host permissions). Se prefiere un modelo que **minimice permisos**: idealmente activar el
+    acceso por sitio bajo demanda (p. ej. `activeTab` + concesión por sitio) en vez de
+    `<all_urls>` permanente, coherente con "solo donde el usuario lo activó".
 - **Service worker (MV3):** coordina persistencia y estado entre pestañas; los content scripts
   aplican el efecto en cada página.
 
@@ -450,15 +451,15 @@ A nivel funcional, Pixly requiere:
 
 ## 12. Resumen de requisitos funcionales
 
-| ID | Requisito |
-|---|---|
-| RF-CORE-1 | Agregar una herramienta nueva solo implementa el contrato de Tool; no toca el núcleo ni otras tools. |
-| RF-CORE-2 | Toda la UI de Pixly vive en un Shadow DOM aislado; sus estilos no se filtran ni se ven afectados. |
-| RF-CORE-3 | No se contamina el DOM real; mutaciones necesarias son no destructivas y reversibles. |
-| RF-ACT-1 | La activación de una herramienta es explícita del usuario. |
-| RF-ACT-2 | Las herramientas activas persisten por scope y sobreviven a full reloads. |
-| RF-ACT-3 | Las herramientas se activan solo en los sitios donde el usuario las encendió. |
-| RF-ACT-4 | El estado restaurado tras reload es idéntico al último estado guardado. |
-| RF-ACT-5 | Cambios de ruta en SPA se evalúan según el scope de cada herramienta. |
-| RF-OVL-1 | El drag del overlay usa Pointer Events + setPointerCapture; sin listeners mouse* en document. |
-| RF-UI-1..5 | UI en inglés, construida desde el registry, no intrusiva y con estados/feedback claros. |
+| ID         | Requisito                                                                                            |
+| ---------- | ---------------------------------------------------------------------------------------------------- |
+| RF-CORE-1  | Agregar una herramienta nueva solo implementa el contrato de Tool; no toca el núcleo ni otras tools. |
+| RF-CORE-2  | Toda la UI de Pixly vive en un Shadow DOM aislado; sus estilos no se filtran ni se ven afectados.    |
+| RF-CORE-3  | No se contamina el DOM real; mutaciones necesarias son no destructivas y reversibles.                |
+| RF-ACT-1   | La activación de una herramienta es explícita del usuario.                                           |
+| RF-ACT-2   | Las herramientas activas persisten por scope y sobreviven a full reloads.                            |
+| RF-ACT-3   | Las herramientas se activan solo en los sitios donde el usuario las encendió.                        |
+| RF-ACT-4   | El estado restaurado tras reload es idéntico al último estado guardado.                              |
+| RF-ACT-5   | Cambios de ruta en SPA se evalúan según el scope de cada herramienta.                                |
+| RF-OVL-1   | El drag del overlay usa Pointer Events + setPointerCapture; sin listeners mouse\* en document.       |
+| RF-UI-1..5 | UI en inglés, construida desde el registry, no intrusiva y con estados/feedback claros.              |

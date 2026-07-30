@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { applyPlaceholder, isPatched, restoreImage } from '@content/tools/fix-broken-images/image-mutator';
+import {
+  applyPlaceholder,
+  isPatched,
+  restoreImage,
+} from '@content/tools/fix-broken-images/image-mutator';
 
 /**
  * Reversibility tests for the in-place mutation (RF-CORE-3). happy-dom gives us real elements so we

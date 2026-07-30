@@ -21,7 +21,10 @@ export function isAcceptedType(mimeType: string): boolean {
   return (ACCEPTED_MIME_TYPES as readonly string[]).includes(mimeType);
 }
 
-export async function readImageBlob(blob: Blob, fileName: string | null): Promise<Result<StoredOverlayImage>> {
+export async function readImageBlob(
+  blob: Blob,
+  fileName: string | null,
+): Promise<Result<StoredOverlayImage>> {
   if (!isAcceptedType(blob.type)) {
     return { ok: false, error: `Unsupported image type: ${blob.type || 'unknown'}` };
   }

@@ -1,8 +1,4 @@
-import {
-  OVERLAY_DB_NAME,
-  OVERLAY_DB_VERSION,
-  OVERLAY_STORE_NAME,
-} from '@shared/constants';
+import { OVERLAY_DB_NAME, OVERLAY_DB_VERSION, OVERLAY_STORE_NAME } from '@shared/constants';
 import type { Result } from '@shared/types';
 
 /**
