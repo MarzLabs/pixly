@@ -5,8 +5,10 @@ import {
   distanceToSegment,
   dragDistance,
   ellipseFromDrag,
+  gripAtPoint,
   normalizedRect,
   pointInRect,
+  resizeCursorForGrip,
 } from '@content/tools/capture-annotate/annotation-geometry';
 
 describe('normalizedRect', () => {
@@ -92,6 +94,34 @@ describe('pointInRect', () => {
     expect(pointInRect({ x: 34, y: 24 }, rect, 5)).toBe(true);
     expect(pointInRect({ x: 6, y: 6 }, rect, 5)).toBe(true);
     expect(pointInRect({ x: 36, y: 12 }, rect, 5)).toBe(false);
+  });
+});
+
+describe('gripAtPoint', () => {
+  const start = { x: 10, y: 10 };
+  const end = { x: 100, y: 60 };
+
+  it('grabs the endpoint within the radius and nothing outside it', () => {
+    expect(gripAtPoint(start, end, { x: 12, y: 13 }, 8)).toBe('start');
+    expect(gripAtPoint(start, end, { x: 104, y: 57 }, 8)).toBe('end');
+    expect(gripAtPoint(start, end, { x: 55, y: 35 }, 8)).toBeNull();
+  });
+
+  it('prefers the end grip on collapsed shapes, so they can be dragged back open', () => {
+    expect(gripAtPoint(start, start, { x: 11, y: 11 }, 8)).toBe('end');
+  });
+});
+
+describe('resizeCursorForGrip', () => {
+  it('picks the diagonal matching the grip corner', () => {
+    expect(resizeCursorForGrip({ x: 100, y: 60 }, { x: 10, y: 10 })).toBe('nwse-resize');
+    expect(resizeCursorForGrip({ x: 100, y: 10 }, { x: 10, y: 60 })).toBe('nesw-resize');
+  });
+
+  it('uses axis arrows for axis-aligned shapes and move for collapsed ones', () => {
+    expect(resizeCursorForGrip({ x: 100, y: 10 }, { x: 10, y: 10 })).toBe('ew-resize');
+    expect(resizeCursorForGrip({ x: 10, y: 60 }, { x: 10, y: 10 })).toBe('ns-resize');
+    expect(resizeCursorForGrip({ x: 10, y: 10 }, { x: 10, y: 10 })).toBe('move');
   });
 });
 

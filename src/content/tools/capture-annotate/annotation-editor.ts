@@ -6,12 +6,17 @@ import type {
 } from './annotation-tools/annotation-tool';
 import { ANNOTATION_TOOLS, getAnnotationTool } from './annotation-tools';
 import { translateAnnotation } from './annotation-tools/annotation-tool';
+import type { AnnotationGrip } from './annotation-geometry';
 import {
   dragDistance,
+  GRIP_RADIUS_PX,
+  GRIP_VISUAL_RADIUS_PX,
+  gripAtPoint,
   HIT_SLACK_PX,
   MIN_DRAG_DISTANCE_PX,
   normalizedRect,
   pointInRect,
+  resizeCursorForGrip,
 } from './annotation-geometry';
 import {
   ANNOTATION_COLORS,
@@ -75,8 +80,14 @@ export class AnnotationEditor {
   /** Move mode: clicks grab existing annotations instead of drawing new ones. */
   private moveMode = false;
   private moveButton: HTMLButtonElement | null = null;
-  /** Annotation being dragged in move mode: its index plus the pointer's last position. */
-  private moving: { index: number; last: AnnotationPoint } | null = null;
+  /**
+   * Drag in progress in move mode: the annotation's index, the pointer's last position, and
+   * what was grabbed — 'whole' translates the shape, an endpoint grip resizes/reshapes it.
+   */
+  private moving: { index: number; last: AnnotationPoint; grip: AnnotationGrip | 'whole' } | null =
+    null;
+  /** Annotation under the pointer in idle move mode; its grips are painted as affordances. */
+  private hoveredIndex: number | null = null;
   private exporting = false;
 
   /** CSS-pixel size of the screenshot, the coordinate space annotations live in. */
@@ -324,9 +335,11 @@ export class AnnotationEditor {
   // ---- Selection --------------------------------------------------------
 
   private updateSelection(partial: Partial<EditorStyleSelection>): void {
-    // Picking a paint tool is an implicit exit from move mode.
-    if (partial.toolId !== undefined) {
+    // Picking a paint tool is an implicit exit from move mode (grips disappear with it).
+    if (partial.toolId !== undefined && this.moveMode) {
       this.moveMode = false;
+      this.hoveredIndex = null;
+      this.repaint();
     }
 
     this.selection = { ...this.selection, ...partial };
@@ -337,10 +350,12 @@ export class AnnotationEditor {
   private setMoveMode(enabled: boolean): void {
     this.moveMode = enabled;
     this.commitTextDraft();
+    this.hoveredIndex = null;
     this.syncSelectionButtons();
+    this.repaint();
 
     if (enabled) {
-      this.setFeedback('Move: drag any annotation to reposition it.', false);
+      this.setFeedback('Move: drag an annotation to reposition it, or a grip to resize it.', false);
     }
   }
 
@@ -442,11 +457,13 @@ export class AnnotationEditor {
       const point = this.toCanvasPoint(event);
 
       if (this.moveMode) {
-        const index = this.annotationIndexAt(point);
+        const grab = this.grabAt(point);
 
-        if (index !== null) {
+        if (grab) {
           this.canvas.setPointerCapture(event.pointerId);
-          this.moving = { index, last: point };
+          this.moving = { index: grab.index, last: point, grip: grab.grip };
+          this.hoveredIndex = grab.index;
+          this.repaint();
         }
 
         return;
@@ -481,11 +498,17 @@ export class AnnotationEditor {
         const target = this.annotations[this.moving.index];
 
         if (target) {
-          this.annotations[this.moving.index] = translateAnnotation(
-            target,
-            point.x - this.moving.last.x,
-            point.y - this.moving.last.y,
-          );
+          // A grip drag re-anchors that endpoint at the pointer; a body drag translates both.
+          this.annotations[this.moving.index] =
+            this.moving.grip === 'whole'
+              ? translateAnnotation(
+                  target,
+                  point.x - this.moving.last.x,
+                  point.y - this.moving.last.y,
+                )
+              : this.moving.grip === 'start'
+                ? { ...target, start: point }
+                : { ...target, end: point };
           this.moving.last = point;
           this.repaint();
         }
@@ -493,10 +516,18 @@ export class AnnotationEditor {
         return;
       }
 
-      // Idle move mode: signal grabbability under the pointer without repainting anything.
+      // Idle move mode: show grips on the hovered annotation and shape the cursor to the grab.
       if (this.moveMode) {
-        const hit = this.annotationIndexAt(this.toCanvasPoint(event)) !== null;
-        this.canvas.style.cursor = hit ? 'move' : 'default';
+        const point = this.toCanvasPoint(event);
+        const grab = this.grabAt(point);
+        const hoveredIndex = grab?.index ?? null;
+
+        if (hoveredIndex !== this.hoveredIndex) {
+          this.hoveredIndex = hoveredIndex;
+          this.repaint();
+        }
+
+        this.canvas.style.cursor = this.cursorForGrab(grab);
 
         return;
       }
@@ -639,11 +670,12 @@ export class AnnotationEditor {
   }
 
   /**
-   * Topmost annotation under the point (later annotations paint on top, so the scan runs in
-   * reverse insertion order). Each tool's own hitTest decides its grab area; tools without one
-   * get a padded bounding box of their start/end geometry.
+   * Topmost grab under the point (later annotations paint on top, so the scan runs in reverse
+   * insertion order). Drag-shaped annotations expose endpoint grips that win over their body,
+   * so resizing works even where the grip overlaps the stroke. Each tool's own hitTest decides
+   * its body grab area; tools without one get a padded bounding box of their geometry.
    */
-  private annotationIndexAt(point: AnnotationPoint): number | null {
+  private grabAt(point: AnnotationPoint): { index: number; grip: AnnotationGrip | 'whole' } | null {
     if (!this.ctx) {
       return null;
     }
@@ -656,6 +688,16 @@ export class AnnotationEditor {
       }
 
       const tool = getAnnotationTool(annotation.toolId);
+
+      // Only drag-defined shapes resize; text and stamps scale via the stroke-width presets.
+      if ((tool?.interaction ?? 'drag') === 'drag') {
+        const grip = gripAtPoint(annotation.start, annotation.end, point, GRIP_RADIUS_PX);
+
+        if (grip) {
+          return { index, grip };
+        }
+      }
+
       const hit = tool?.hitTest
         ? tool.hitTest(this.ctx, annotation, point)
         : pointInRect(
@@ -665,11 +707,31 @@ export class AnnotationEditor {
           );
 
       if (hit) {
-        return index;
+        return { index, grip: 'whole' };
       }
     }
 
     return null;
+  }
+
+  private cursorForGrab(grab: { index: number; grip: AnnotationGrip | 'whole' } | null): string {
+    if (!grab) {
+      return 'default';
+    }
+
+    if (grab.grip === 'whole') {
+      return 'move';
+    }
+
+    const annotation = this.annotations[grab.index];
+
+    if (!annotation) {
+      return 'default';
+    }
+
+    return grab.grip === 'start'
+      ? resizeCursorForGrip(annotation.start, annotation.end)
+      : resizeCursorForGrip(annotation.end, annotation.start);
   }
 
   /**
@@ -710,6 +772,31 @@ export class AnnotationEditor {
         ctx,
         this.buildAnnotation(this.draft.start, this.draft.end),
       );
+    }
+
+    this.paintGrips(ctx);
+  }
+
+  /** Resize grips on the annotation hovered (or being dragged) in move mode. */
+  private paintGrips(ctx: CanvasRenderingContext2D): void {
+    if (!this.moveMode || this.hoveredIndex === null) {
+      return;
+    }
+
+    const annotation = this.annotations[this.hoveredIndex];
+
+    if (!annotation || (getAnnotationTool(annotation.toolId)?.interaction ?? 'drag') !== 'drag') {
+      return;
+    }
+
+    for (const point of [annotation.start, annotation.end]) {
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, GRIP_VISUAL_RADIUS_PX, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = annotation.style.color;
+      ctx.stroke();
     }
   }
 

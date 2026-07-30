@@ -40,6 +40,15 @@ export const MIN_DRAG_DISTANCE_PX = 3;
 /** Grab slack around shapes in move mode, so thin strokes need no pixel-perfect aim. */
 export const HIT_SLACK_PX = 6;
 
+/** Radius around an endpoint that grabs its resize grip instead of the whole shape. */
+export const GRIP_RADIUS_PX = 8;
+
+/** Painted radius of a grip dot (the grab radius above is intentionally more forgiving). */
+export const GRIP_VISUAL_RADIUS_PX = 4.5;
+
+/** Which endpoint of a drag-shaped annotation a grip interaction targets. */
+export type AnnotationGrip = 'start' | 'end';
+
 /** Normalizes a drag into a rect regardless of which corner the user started from. */
 export function normalizedRect(start: AnnotationPoint, end: AnnotationPoint): NormalizedRect {
   return {
@@ -94,6 +103,55 @@ export function pointInRect(point: AnnotationPoint, rect: NormalizedRect, pad: n
     point.y >= rect.top - pad &&
     point.y <= rect.top + rect.height + pad
   );
+}
+
+/**
+ * The grip (if any) that `point` grabs on a shape running start → end. The end grip wins ties:
+ * on a fresh or collapsed shape it is the point being adjusted (e.g. an arrow's head), and it
+ * is what lets a zero-size shape be dragged back open.
+ */
+export function gripAtPoint(
+  start: AnnotationPoint,
+  end: AnnotationPoint,
+  point: AnnotationPoint,
+  radius: number,
+): AnnotationGrip | null {
+  if (dragDistance(point, end) <= radius) {
+    return 'end';
+  }
+
+  if (dragDistance(point, start) <= radius) {
+    return 'start';
+  }
+
+  return null;
+}
+
+/**
+ * Cursor for a grip, oriented by where it sits relative to the shape's opposite endpoint —
+ * so a rect's corners get the diagonal arrows a user expects, and a straight line's ends get
+ * axis arrows.
+ */
+export function resizeCursorForGrip(
+  grip: AnnotationPoint,
+  opposite: AnnotationPoint,
+): 'move' | 'ew-resize' | 'ns-resize' | 'nwse-resize' | 'nesw-resize' {
+  const dx = grip.x - opposite.x;
+  const dy = grip.y - opposite.y;
+
+  if (dx === 0 && dy === 0) {
+    return 'move';
+  }
+
+  if (dy === 0) {
+    return 'ew-resize';
+  }
+
+  if (dx === 0) {
+    return 'ns-resize';
+  }
+
+  return dx * dy > 0 ? 'nwse-resize' : 'nesw-resize';
 }
 
 /** Arrowhead length for a given stroke width, floored so thin arrows keep a visible tip. */

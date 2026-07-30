@@ -53,16 +53,25 @@ quien la reciba entienda al instante qué mirar y dónde reproducirlo.
   PINTAR el gesto. Set v1: flecha (cabeza escalada al grosor), línea, rectángulo, elipse
   (inscrita en el drag, estilo Figma), **texto** (multi-línea, sombra suave para legibilidad
   sobre cualquier fondo) y **emoji** (12 glifos de reacción, sellados centrados en el click).
-- **Modo Move (reposicionar):** botón propio del editor al inicio de la toolbar (es un modo de
-  gesto, no una herramienta de pintura, así que no vive en el registro). Con Move activo, el
-  drag agarra la anotación superior bajo el puntero y la traslada (start y end se desplazan
-  juntos; el cursor avisa `move` al pasar sobre algo agarrable). El hit-testing es **por
+- **Modo Move (reposicionar y redimensionar):** botón propio del editor al inicio de la
+  toolbar (es un modo de gesto, no una herramienta de pintura, así que no vive en el registro).
+  Con Move activo, el drag sobre el cuerpo de la anotación superior bajo el puntero la traslada
+  (start y end se desplazan juntos; cursor `move`). El hit-testing del cuerpo es **por
   herramienta** vía el método opcional `hitTest(ctx, annotation, point)` del spec: líneas y
   flechas se agarran cerca del trazo (distancia al segmento, no su bounding box), rectángulos
   por todo su marco, elipses por su interior elíptico (las esquinas de la caja pasan de largo),
   texto por su caja medida (`measureText`) y emoji por un cuadrado del tamaño del sello;
   herramientas sin `hitTest` caen a un bounding box acolchado. Elegir cualquier herramienta de
   pintura sale del modo Move.
+- **Resize por grips:** al hacer hover sobre una figura de drag en modo Move aparecen dos
+  manijas (círculos blancos con borde del color de la anotación) en sus puntos start/end;
+  arrastrar una re-ancla ese extremo al puntero — la flecha cambia su cabeza de lugar, el
+  rectángulo/elipse mueven esa esquina, la línea ese extremo. El grip gana sobre el cuerpo
+  (radio de agarre 8 px, más generoso que el dibujo de 4.5 px), el cursor se orienta al grip
+  (`nwse`/`nesw`/`ew`/`ns-resize` según su posición relativa al extremo opuesto) y en una
+  figura colapsada gana el grip `end`, que es lo que permite volver a abrirla. Texto y emoji
+  no se redimensionan por grips: su tamaño lo dictan los presets de grosor. Los grips son
+  cosa del editor (solo del repaint del hover); jamás salen en el export.
 - **Estilo:** paleta de 6 colores (rojo por defecto — lee sobre cualquier página) y 3 grosores
   (2/4/7 px); el grosor también escala el tamaño del texto y de los emojis (un solo control de
   escala, métricas puras en `text-metrics.ts`). Cada anotación congela su estilo y contenido al
@@ -83,9 +92,10 @@ quien la reciba entienda al instante qué mirar y dónde reproducirlo.
 ## 4. Fuera de alcance
 
 - Persistir anotaciones o la sesión de edición entre recargas (el export es el artefacto).
-- Freehand, resize/rotación de anotaciones, borrado individual, undo de movimientos (undo sigue
-  quitando la última anotación creada) y emojis personalizados fuera del set (el modelo de
-  puntos + el registro admiten agregarlos después).
+- Freehand, rotación de anotaciones, resize de texto/emoji por grips (su tamaño viene de los
+  presets de grosor), borrado individual, undo de movimientos/resizes (undo sigue quitando la
+  última anotación creada) y emojis personalizados fuera del set (el modelo de puntos + el
+  registro admiten agregarlos después).
 - Captura de página completa (scroll & stitch); los tres modos operan sobre el viewport
   visible (el rect de un elemento más alto que el viewport se recorta a lo visible).
 - Compartir directo a servicios externos (el PNG descargado/copiado es el canal).
@@ -96,7 +106,8 @@ quien la reciba entienda al instante qué mirar y dónde reproducirlo.
   direcciones de drag, elipse inscrita independiente de la dirección, distancia de drag,
   longitud de cabeza de flecha (escala y mínimo), alas simétricas y a distancia exacta del tip,
   shaft de longitud cero sin NaN, distancia punto-segmento (perpendicular, clamp a extremos,
-  segmento degenerado) y punto-en-rect con padding.
+  segmento degenerado), punto-en-rect con padding, grips (radio de agarre, prioridad de `end`
+  en figuras colapsadas) y orientación del cursor de resize (diagonales, ejes, colapso).
 - Unitarias (`tests/capture-annotate-state.test.ts`): defaults, saneamiento (toolId desconocido,
   colores malformados, clamp/round de grosor), nombre de archivo (host saneado + timestamp,
   href no parseable) y formato de timestamp (TZ-safe, entrada inválida).
@@ -120,7 +131,10 @@ quien la reciba entienda al instante qué mirar y dónde reproducirlo.
   commit, Shift+Enter multi-línea, Esc cancela solo el texto, vacío se descarta; emoji: la
   paleta aparece solo con la herramienta activa y el sello queda centrado; Move: cada tipo de
   anotación se agarra y reposiciona (línea solo cerca del trazo, elipse no en sus esquinas),
-  la de arriba gana en solapes y elegir una herramienta sale del modo; undo/clear/Esc;
+  la de arriba gana en solapes, el hover muestra grips en las figuras de drag y arrastrarlos
+  redimensiona (cabeza de flecha, esquina de rect/elipse, extremo de línea) con el cursor
+  orientado, texto/emoji no muestran grips, los grips nunca aparecen en el export y elegir
+  una herramienta sale del modo; undo/clear/Esc;
   cambiar color/grosor no altera lo ya dibujado; export descarga un PNG con banner correcto
   (título/URL/fecha, elipsado en URLs largas) y las anotaciones alineadas 1:1; Copy pega en un
   editor externo; las preferencias de estilo sobreviven recargas; la captura NO incluye la UI
