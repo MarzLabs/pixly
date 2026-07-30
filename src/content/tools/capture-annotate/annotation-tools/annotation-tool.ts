@@ -63,6 +63,22 @@ export interface AnnotationToolSpec {
    * pixels. Called for committed annotations, live drag previews and the final export alike.
    */
   render(ctx: CanvasRenderingContext2D, annotation: Annotation): void;
+
+  /**
+   * Whether `point` grabs this annotation in the editor's move mode. Optional: tools without a
+   * hit test fall back to the editor's padded bounding-box default. `ctx` is provided for
+   * shapes whose bounds need canvas metrics (e.g. measured text).
+   */
+  hitTest?(ctx: CanvasRenderingContext2D, annotation: Annotation, point: AnnotationPoint): boolean;
+}
+
+/** A copy of the annotation shifted by (dx, dy); how the editor's move mode repositions. */
+export function translateAnnotation(annotation: Annotation, dx: number, dy: number): Annotation {
+  return {
+    ...annotation,
+    start: { x: annotation.start.x + dx, y: annotation.start.y + dy },
+    end: { x: annotation.end.x + dx, y: annotation.end.y + dy },
+  };
 }
 
 /** Shared stroke setup so every tool draws with the same line quality. */

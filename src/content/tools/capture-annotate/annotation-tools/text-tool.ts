@@ -1,6 +1,7 @@
 import { DESIGN_TOKENS } from '@shared/constants/design-tokens';
+import { HIT_SLACK_PX, pointInRect } from '../annotation-geometry';
 import { splitAnnotationLines, textFontSizePx, textLineHeightPx } from '../text-metrics';
-import type { Annotation, AnnotationToolSpec } from './annotation-tool';
+import type { Annotation, AnnotationPoint, AnnotationToolSpec } from './annotation-tool';
 
 /**
  * Text label anchored at the click point ('text' interaction: the editor opens an inline input
@@ -36,5 +37,32 @@ export const TextTool: AnnotationToolSpec = {
     });
 
     ctx.restore();
+  },
+
+  // The label's box is its measured widest line × line count, anchored at the top-left start.
+  hitTest(ctx: CanvasRenderingContext2D, annotation: Annotation, point: AnnotationPoint): boolean {
+    const lines = splitAnnotationLines(annotation.text ?? '');
+
+    if (lines.length === 0) {
+      return false;
+    }
+
+    const fontSizePx = textFontSizePx(annotation.style.strokeWidthPx);
+
+    ctx.save();
+    ctx.font = `600 ${fontSizePx}px ${DESIGN_TOKENS.fontFamily}`;
+    const width = Math.max(...lines.map((line) => ctx.measureText(line).width));
+    ctx.restore();
+
+    return pointInRect(
+      point,
+      {
+        left: annotation.start.x,
+        top: annotation.start.y,
+        width,
+        height: lines.length * textLineHeightPx(fontSizePx),
+      },
+      HIT_SLACK_PX,
+    );
   },
 };

@@ -1,6 +1,7 @@
 import { DESIGN_TOKENS } from '@shared/constants/design-tokens';
+import { HIT_SLACK_PX, pointInRect } from '../annotation-geometry';
 import { stampFontSizePx } from '../text-metrics';
-import type { Annotation, AnnotationToolSpec } from './annotation-tool';
+import type { Annotation, AnnotationPoint, AnnotationToolSpec } from './annotation-tool';
 
 /** Reaction/status set: point, judge, warn, celebrate — the vocabulary of a visual review. */
 export const EMOJI_GLYPHS: readonly string[] = [
@@ -43,5 +44,25 @@ export const EmojiTool: AnnotationToolSpec = {
     ctx.textBaseline = 'middle';
     ctx.fillText(glyph, annotation.start.x, annotation.start.y);
     ctx.restore();
+  },
+
+  // A square of the stamp's font size, centered on the click point like the glyph itself.
+  hitTest(_ctx: CanvasRenderingContext2D, annotation: Annotation, point: AnnotationPoint): boolean {
+    if (!annotation.text) {
+      return false;
+    }
+
+    const half = stampFontSizePx(annotation.style.strokeWidthPx) / 2;
+
+    return pointInRect(
+      point,
+      {
+        left: annotation.start.x - half,
+        top: annotation.start.y - half,
+        width: half * 2,
+        height: half * 2,
+      },
+      HIT_SLACK_PX,
+    );
   },
 };

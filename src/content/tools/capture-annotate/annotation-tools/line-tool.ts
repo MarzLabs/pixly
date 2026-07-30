@@ -1,4 +1,5 @@
-import type { Annotation, AnnotationToolSpec } from './annotation-tool';
+import { distanceToSegment, HIT_SLACK_PX } from '../annotation-geometry';
+import type { Annotation, AnnotationPoint, AnnotationToolSpec } from './annotation-tool';
 import { applyStrokeStyle } from './annotation-tool';
 
 /** Straight line between the drag endpoints — underline or connect without pointing. */
@@ -15,5 +16,11 @@ export const LineTool: AnnotationToolSpec = {
     ctx.moveTo(start.x, start.y);
     ctx.lineTo(end.x, end.y);
     ctx.stroke();
+  },
+
+  hitTest(_ctx: CanvasRenderingContext2D, annotation: Annotation, point: AnnotationPoint): boolean {
+    const threshold = annotation.style.strokeWidthPx / 2 + HIT_SLACK_PX;
+
+    return distanceToSegment(point, annotation.start, annotation.end) <= threshold;
   },
 };

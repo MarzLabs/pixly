@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Annotation } from '@content/tools/capture-annotate/annotation-tools/annotation-tool';
+import { translateAnnotation } from '@content/tools/capture-annotate/annotation-tools/annotation-tool';
 import {
   ANNOTATION_TOOLS,
   getAnnotationTool,
@@ -42,6 +43,8 @@ function createStubContext(): { ctx: CanvasRenderingContext2D; calls: string[] }
     fillText: record('fillText'),
     save: record('save'),
     restore: record('restore'),
+    /** Every character is 5px wide, so text hit boxes are predictable. */
+    measureText: (text: string) => ({ width: text.length * 5 }),
   };
 
   return { ctx: stub as unknown as CanvasRenderingContext2D, calls };
@@ -162,6 +165,58 @@ describe('EmojiTool', () => {
 
     emojiTool?.render(ctx, buildAnnotation('emoji'));
     expect(calls).not.toContain('fillText');
+  });
+});
+
+describe('translateAnnotation', () => {
+  it('shifts both points and keeps style and text untouched', () => {
+    const moved = translateAnnotation(buildAnnotation('text', 'hola'), 5, -3);
+
+    expect(moved.start).toEqual({ x: 15, y: 7 });
+    expect(moved.end).toEqual({ x: 95, y: 47 });
+    expect(moved.style).toEqual({ color: '#3B82F6', strokeWidthPx: 5 });
+    expect(moved.text).toBe('hola');
+  });
+});
+
+describe('hitTest (move mode)', () => {
+  const { ctx } = createStubContext();
+  const hit = (toolId: string, x: number, y: number, text?: string): boolean => {
+    const tool = ANNOTATION_TOOLS.find((candidate) => candidate.id === toolId);
+
+    return tool?.hitTest?.(ctx, buildAnnotation(toolId, text), { x, y }) ?? false;
+  };
+
+  it('lines and arrows grab near the stroke, not across their bounding box', () => {
+    // Annotation runs (10,10) → (90,50); its midpoint is (50,30).
+    expect(hit('line', 50, 30)).toBe(true);
+    expect(hit('arrow', 50, 30)).toBe(true);
+    // Bounding-box corner far from the diagonal stroke.
+    expect(hit('line', 88, 12)).toBe(false);
+    expect(hit('arrow', 12, 48)).toBe(false);
+  });
+
+  it('rects grab anywhere inside their frame', () => {
+    expect(hit('rect', 50, 30)).toBe(true);
+    expect(hit('rect', 50, 70)).toBe(false);
+  });
+
+  it('ellipses grab inside the ellipse but not in the bounding-box corners', () => {
+    expect(hit('ellipse', 50, 30)).toBe(true);
+    expect(hit('ellipse', 12, 12)).toBe(false);
+  });
+
+  it('text grabs by its measured box and never without content', () => {
+    // 'hello' at 5px/char under the stub → 25px wide from (10,10).
+    expect(hit('text', 20, 20, 'hello')).toBe(true);
+    expect(hit('text', 80, 20, 'hello')).toBe(false);
+    expect(hit('text', 12, 12)).toBe(false);
+  });
+
+  it('emoji grabs by a square around the stamp center and never without a glyph', () => {
+    expect(hit('emoji', 15, 15, '🔥')).toBe(true);
+    expect(hit('emoji', 80, 45, '🔥')).toBe(false);
+    expect(hit('emoji', 10, 10)).toBe(false);
   });
 });
 

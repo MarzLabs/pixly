@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   arrowHeadLength,
   arrowHeadPoints,
+  distanceToSegment,
   dragDistance,
   ellipseFromDrag,
   normalizedRect,
+  pointInRect,
 } from '@content/tools/capture-annotate/annotation-geometry';
 
 describe('normalizedRect', () => {
@@ -60,6 +62,36 @@ describe('dragDistance', () => {
 
   it('returns zero for a click without movement', () => {
     expect(dragDistance({ x: 7, y: 7 }, { x: 7, y: 7 })).toBe(0);
+  });
+});
+
+describe('distanceToSegment', () => {
+  it('measures the perpendicular distance to the segment body', () => {
+    expect(distanceToSegment({ x: 5, y: 3 }, { x: 0, y: 0 }, { x: 10, y: 0 })).toBe(3);
+  });
+
+  it('clamps to the nearest endpoint beyond the segment ends', () => {
+    expect(distanceToSegment({ x: 13, y: 4 }, { x: 0, y: 0 }, { x: 10, y: 0 })).toBe(5);
+    expect(distanceToSegment({ x: -3, y: -4 }, { x: 0, y: 0 }, { x: 10, y: 0 })).toBe(5);
+  });
+
+  it('degrades a zero-length segment to point distance', () => {
+    expect(distanceToSegment({ x: 3, y: 4 }, { x: 0, y: 0 }, { x: 0, y: 0 })).toBe(5);
+  });
+});
+
+describe('pointInRect', () => {
+  const rect = { left: 10, top: 10, width: 20, height: 10 };
+
+  it('accepts interior points and rejects exterior ones without padding', () => {
+    expect(pointInRect({ x: 15, y: 12 }, rect, 0)).toBe(true);
+    expect(pointInRect({ x: 31, y: 12 }, rect, 0)).toBe(false);
+  });
+
+  it('padding extends the rect on every side', () => {
+    expect(pointInRect({ x: 34, y: 24 }, rect, 5)).toBe(true);
+    expect(pointInRect({ x: 6, y: 6 }, rect, 5)).toBe(true);
+    expect(pointInRect({ x: 36, y: 12 }, rect, 5)).toBe(false);
   });
 });
 

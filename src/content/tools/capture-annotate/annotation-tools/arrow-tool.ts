@@ -1,5 +1,10 @@
-import { arrowHeadLength, arrowHeadPoints } from '../annotation-geometry';
-import type { Annotation, AnnotationToolSpec } from './annotation-tool';
+import {
+  arrowHeadLength,
+  arrowHeadPoints,
+  distanceToSegment,
+  HIT_SLACK_PX,
+} from '../annotation-geometry';
+import type { Annotation, AnnotationPoint, AnnotationToolSpec } from './annotation-tool';
 import { applyStrokeStyle } from './annotation-tool';
 
 /** Arrow: shaft from the drag start with the head at the drag end — "look HERE". */
@@ -20,5 +25,11 @@ export const ArrowTool: AnnotationToolSpec = {
     ctx.lineTo(end.x, end.y);
     ctx.lineTo(head.right.x, head.right.y);
     ctx.stroke();
+  },
+
+  hitTest(_ctx: CanvasRenderingContext2D, annotation: Annotation, point: AnnotationPoint): boolean {
+    const threshold = annotation.style.strokeWidthPx / 2 + HIT_SLACK_PX;
+
+    return distanceToSegment(point, annotation.start, annotation.end) <= threshold;
   },
 };

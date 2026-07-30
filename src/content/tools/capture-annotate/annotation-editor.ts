@@ -5,7 +5,14 @@ import type {
   AnnotationPoint,
 } from './annotation-tools/annotation-tool';
 import { ANNOTATION_TOOLS, getAnnotationTool } from './annotation-tools';
-import { dragDistance, MIN_DRAG_DISTANCE_PX } from './annotation-geometry';
+import { translateAnnotation } from './annotation-tools/annotation-tool';
+import {
+  dragDistance,
+  HIT_SLACK_PX,
+  MIN_DRAG_DISTANCE_PX,
+  normalizedRect,
+  pointInRect,
+} from './annotation-geometry';
 import {
   ANNOTATION_COLORS,
   buildCaptureFileName,
@@ -65,6 +72,11 @@ export class AnnotationEditor {
   private draft: { start: AnnotationPoint; end: AnnotationPoint } | null = null;
   /** Open inline text entry ('text' interaction); committed on Enter/blur, cancelled on Esc. */
   private textDraft: { point: AnnotationPoint; input: HTMLTextAreaElement } | null = null;
+  /** Move mode: clicks grab existing annotations instead of drawing new ones. */
+  private moveMode = false;
+  private moveButton: HTMLButtonElement | null = null;
+  /** Annotation being dragged in move mode: its index plus the pointer's last position. */
+  private moving: { index: number; last: AnnotationPoint } | null = null;
   private exporting = false;
 
   /** CSS-pixel size of the screenshot, the coordinate space annotations live in. */
@@ -139,7 +151,16 @@ export class AnnotationEditor {
     topbar.className = 'pixly-capture-editor__topbar';
 
     // Tool buttons come straight from the registry; a new tool shows up here automatically.
+    // Move is editor-owned (a gesture mode, not a paint tool), so it sits ahead of the registry.
     const toolGroup = this.group();
+
+    this.moveButton = this.iconButton(
+      'pixly-tab',
+      '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3l7 16 2-7 7-2z"/></svg>',
+      'Move annotations',
+      () => this.setMoveMode(true),
+    );
+    toolGroup.appendChild(this.moveButton);
 
     for (const tool of ANNOTATION_TOOLS) {
       const button = this.iconButton('pixly-tab', tool.icon, tool.name, () =>
@@ -303,14 +324,34 @@ export class AnnotationEditor {
   // ---- Selection --------------------------------------------------------
 
   private updateSelection(partial: Partial<EditorStyleSelection>): void {
+    // Picking a paint tool is an implicit exit from move mode.
+    if (partial.toolId !== undefined) {
+      this.moveMode = false;
+    }
+
     this.selection = { ...this.selection, ...partial };
     this.syncSelectionButtons();
     this.callbacks.onStyleChange({ ...this.selection });
   }
 
+  private setMoveMode(enabled: boolean): void {
+    this.moveMode = enabled;
+    this.commitTextDraft();
+    this.syncSelectionButtons();
+
+    if (enabled) {
+      this.setFeedback('Move: drag any annotation to reposition it.', false);
+    }
+  }
+
   private syncSelectionButtons(): void {
+    this.moveButton?.classList.toggle('pixly-tab--active', this.moveMode);
+
     for (const [toolId, button] of this.toolButtons) {
-      button.classList.toggle('pixly-tab--active', toolId === this.selection.toolId);
+      button.classList.toggle(
+        'pixly-tab--active',
+        !this.moveMode && toolId === this.selection.toolId,
+      );
     }
 
     for (const [color, button] of this.colorButtons) {
@@ -325,8 +366,13 @@ export class AnnotationEditor {
     }
 
     const interaction = this.activeInteraction();
-    this.canvas.style.cursor =
-      interaction === 'text' ? 'text' : interaction === 'stamp' ? 'copy' : 'crosshair';
+    this.canvas.style.cursor = this.moveMode
+      ? 'default'
+      : interaction === 'text'
+        ? 'text'
+        : interaction === 'stamp'
+          ? 'copy'
+          : 'crosshair';
     this.refreshGlyphBar();
   }
 
@@ -350,7 +396,7 @@ export class AnnotationEditor {
   /** Secondary palette row for stamp tools (e.g. the emoji set); hidden for the rest. */
   private refreshGlyphBar(): void {
     const tool = getAnnotationTool(this.selection.toolId);
-    const glyphs = tool?.glyphs ?? [];
+    const glyphs = this.moveMode ? [] : (tool?.glyphs ?? []);
 
     this.glyphBar.classList.toggle('pixly-capture-editor__glyphbar--hidden', glyphs.length === 0);
     this.glyphBar.replaceChildren();
@@ -394,6 +440,18 @@ export class AnnotationEditor {
       }
 
       const point = this.toCanvasPoint(event);
+
+      if (this.moveMode) {
+        const index = this.annotationIndexAt(point);
+
+        if (index !== null) {
+          this.canvas.setPointerCapture(event.pointerId);
+          this.moving = { index, last: point };
+        }
+
+        return;
+      }
+
       const interaction = this.activeInteraction();
 
       if (interaction === 'text') {
@@ -418,6 +476,31 @@ export class AnnotationEditor {
     });
 
     this.canvas.addEventListener('pointermove', (event) => {
+      if (this.moving) {
+        const point = this.toCanvasPoint(event);
+        const target = this.annotations[this.moving.index];
+
+        if (target) {
+          this.annotations[this.moving.index] = translateAnnotation(
+            target,
+            point.x - this.moving.last.x,
+            point.y - this.moving.last.y,
+          );
+          this.moving.last = point;
+          this.repaint();
+        }
+
+        return;
+      }
+
+      // Idle move mode: signal grabbability under the pointer without repainting anything.
+      if (this.moveMode) {
+        const hit = this.annotationIndexAt(this.toCanvasPoint(event)) !== null;
+        this.canvas.style.cursor = hit ? 'move' : 'default';
+
+        return;
+      }
+
       if (!this.draft) {
         return;
       }
@@ -427,6 +510,12 @@ export class AnnotationEditor {
     });
 
     const finish = (event: PointerEvent, commit: boolean): void => {
+      if (this.moving) {
+        this.moving = null;
+
+        return;
+      }
+
       if (!this.draft) {
         return;
       }
@@ -547,6 +636,40 @@ export class AnnotationEditor {
     const rect = this.canvas.getBoundingClientRect();
 
     return rect.width > 0 && this.cssWidth > 0 ? rect.width / this.cssWidth : 1;
+  }
+
+  /**
+   * Topmost annotation under the point (later annotations paint on top, so the scan runs in
+   * reverse insertion order). Each tool's own hitTest decides its grab area; tools without one
+   * get a padded bounding box of their start/end geometry.
+   */
+  private annotationIndexAt(point: AnnotationPoint): number | null {
+    if (!this.ctx) {
+      return null;
+    }
+
+    for (let index = this.annotations.length - 1; index >= 0; index -= 1) {
+      const annotation = this.annotations[index];
+
+      if (!annotation) {
+        continue;
+      }
+
+      const tool = getAnnotationTool(annotation.toolId);
+      const hit = tool?.hitTest
+        ? tool.hitTest(this.ctx, annotation, point)
+        : pointInRect(
+            point,
+            normalizedRect(annotation.start, annotation.end),
+            HIT_SLACK_PX + annotation.style.strokeWidthPx,
+          );
+
+      if (hit) {
+        return index;
+      }
+    }
+
+    return null;
   }
 
   /**

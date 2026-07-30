@@ -1,5 +1,5 @@
-import { normalizedRect } from '../annotation-geometry';
-import type { Annotation, AnnotationToolSpec } from './annotation-tool';
+import { HIT_SLACK_PX, normalizedRect, pointInRect } from '../annotation-geometry';
+import type { Annotation, AnnotationPoint, AnnotationToolSpec } from './annotation-tool';
 import { applyStrokeStyle } from './annotation-tool';
 
 /** Hollow rectangle over the dragged bounds — frame a whole region of the capture. */
@@ -15,5 +15,10 @@ export const RectTool: AnnotationToolSpec = {
     ctx.beginPath();
     ctx.rect(rect.left, rect.top, rect.width, rect.height);
     ctx.stroke();
+  },
+
+  // The interior counts too: a frame is grabbed by what it frames, not just its 2px stroke.
+  hitTest(_ctx: CanvasRenderingContext2D, annotation: Annotation, point: AnnotationPoint): boolean {
+    return pointInRect(point, normalizedRect(annotation.start, annotation.end), HIT_SLACK_PX);
   },
 };

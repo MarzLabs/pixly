@@ -53,6 +53,16 @@ quien la reciba entienda al instante qué mirar y dónde reproducirlo.
   PINTAR el gesto. Set v1: flecha (cabeza escalada al grosor), línea, rectángulo, elipse
   (inscrita en el drag, estilo Figma), **texto** (multi-línea, sombra suave para legibilidad
   sobre cualquier fondo) y **emoji** (12 glifos de reacción, sellados centrados en el click).
+- **Modo Move (reposicionar):** botón propio del editor al inicio de la toolbar (es un modo de
+  gesto, no una herramienta de pintura, así que no vive en el registro). Con Move activo, el
+  drag agarra la anotación superior bajo el puntero y la traslada (start y end se desplazan
+  juntos; el cursor avisa `move` al pasar sobre algo agarrable). El hit-testing es **por
+  herramienta** vía el método opcional `hitTest(ctx, annotation, point)` del spec: líneas y
+  flechas se agarran cerca del trazo (distancia al segmento, no su bounding box), rectángulos
+  por todo su marco, elipses por su interior elíptico (las esquinas de la caja pasan de largo),
+  texto por su caja medida (`measureText`) y emoji por un cuadrado del tamaño del sello;
+  herramientas sin `hitTest` caen a un bounding box acolchado. Elegir cualquier herramienta de
+  pintura sale del modo Move.
 - **Estilo:** paleta de 6 colores (rojo por defecto — lee sobre cualquier página) y 3 grosores
   (2/4/7 px); el grosor también escala el tamaño del texto y de los emojis (un solo control de
   escala, métricas puras en `text-metrics.ts`). Cada anotación congela su estilo y contenido al
@@ -73,8 +83,9 @@ quien la reciba entienda al instante qué mirar y dónde reproducirlo.
 ## 4. Fuera de alcance
 
 - Persistir anotaciones o la sesión de edición entre recargas (el export es el artefacto).
-- Freehand, selección/edición/arrastre de anotaciones ya dibujadas y emojis personalizados
-  fuera del set (el modelo de puntos + el registro admiten agregarlos después).
+- Freehand, resize/rotación de anotaciones, borrado individual, undo de movimientos (undo sigue
+  quitando la última anotación creada) y emojis personalizados fuera del set (el modelo de
+  puntos + el registro admiten agregarlos después).
 - Captura de página completa (scroll & stitch); los tres modos operan sobre el viewport
   visible (el rect de un elemento más alto que el viewport se recorta a lo visible).
 - Compartir directo a servicios externos (el PNG descargado/copiado es el canal).
@@ -84,14 +95,18 @@ quien la reciba entienda al instante qué mirar y dónde reproducirlo.
 - Unitarias (`tests/annotation-geometry.test.ts`): normalización del rect en las cuatro
   direcciones de drag, elipse inscrita independiente de la dirección, distancia de drag,
   longitud de cabeza de flecha (escala y mínimo), alas simétricas y a distancia exacta del tip,
-  shaft de longitud cero sin NaN.
+  shaft de longitud cero sin NaN, distancia punto-segmento (perpendicular, clamp a extremos,
+  segmento degenerado) y punto-en-rect con padding.
 - Unitarias (`tests/capture-annotate-state.test.ts`): defaults, saneamiento (toolId desconocido,
   colores malformados, clamp/round de grosor), nombre de archivo (host saneado + timestamp,
   href no parseable) y formato de timestamp (TZ-safe, entrada inválida).
 - Unitarias (`tests/annotation-tools.test.ts`): registro (ids únicos, metadata completa, lookup,
   paleta no vacía en stamps), cada herramienta pinta con el estilo de la anotación según su
   interacción (ctx stub que graba llamadas), texto multi-línea/vacío, emoji centrado/sin glifo,
-  layout del export (banner apilado, escala con dpr, piso en 1x) y elipsado por ancho.
+  traslación de anotaciones (puntos desplazados, estilo/texto intactos), hit-testing por
+  herramienta (trazo vs. bounding box, interior de elipse vs. esquinas, caja medida del texto,
+  cuadrado del emoji, sin contenido → sin hit), layout del export (banner apilado, escala con
+  dpr, piso en 1x) y elipsado por ancho.
 - Unitarias (`tests/text-metrics.test.ts`): escalado de fuentes con el grosor (texto y stamp,
   stamp > texto), line height proporcional, split de líneas (CRLF, vacías interiores vs.
   finales).
@@ -103,7 +118,9 @@ quien la reciba entienda al instante qué mirar y dónde reproducirlo.
   chip de identidad y el click captura solo su caja; dibujar cada figura en las cuatro
   direcciones; preview en vivo durante el drag; click sin drag no crea nada; texto: Enter/blur
   commit, Shift+Enter multi-línea, Esc cancela solo el texto, vacío se descarta; emoji: la
-  paleta aparece solo con la herramienta activa y el sello queda centrado; undo/clear/Esc;
+  paleta aparece solo con la herramienta activa y el sello queda centrado; Move: cada tipo de
+  anotación se agarra y reposiciona (línea solo cerca del trazo, elipse no en sus esquinas),
+  la de arriba gana en solapes y elegir una herramienta sale del modo; undo/clear/Esc;
   cambiar color/grosor no altera lo ya dibujado; export descarga un PNG con banner correcto
   (título/URL/fecha, elipsado en URLs largas) y las anotaciones alineadas 1:1; Copy pega en un
   editor externo; las preferencias de estilo sobreviven recargas; la captura NO incluye la UI

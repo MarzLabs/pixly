@@ -37,6 +37,9 @@ const MIN_ARROW_HEAD_PX = 10;
 /** Drags shorter than this commit nothing: they are clicks, not shapes. */
 export const MIN_DRAG_DISTANCE_PX = 3;
 
+/** Grab slack around shapes in move mode, so thin strokes need no pixel-perfect aim. */
+export const HIT_SLACK_PX = 6;
+
 /** Normalizes a drag into a rect regardless of which corner the user started from. */
 export function normalizedRect(start: AnnotationPoint, end: AnnotationPoint): NormalizedRect {
   return {
@@ -62,6 +65,35 @@ export function ellipseFromDrag(start: AnnotationPoint, end: AnnotationPoint): E
 /** Straight-line length of a drag, used to discard accidental clicks. */
 export function dragDistance(start: AnnotationPoint, end: AnnotationPoint): number {
   return Math.hypot(end.x - start.x, end.y - start.y);
+}
+
+/** Distance from a point to the closest spot on segment a→b; a degenerate segment is a point. */
+export function distanceToSegment(
+  point: AnnotationPoint,
+  a: AnnotationPoint,
+  b: AnnotationPoint,
+): number {
+  const abX = b.x - a.x;
+  const abY = b.y - a.y;
+  const lengthSq = abX * abX + abY * abY;
+
+  if (lengthSq === 0) {
+    return Math.hypot(point.x - a.x, point.y - a.y);
+  }
+
+  const t = Math.min(1, Math.max(0, ((point.x - a.x) * abX + (point.y - a.y) * abY) / lengthSq));
+
+  return Math.hypot(point.x - (a.x + t * abX), point.y - (a.y + t * abY));
+}
+
+/** Whether the point falls inside the rect expanded by `pad` on every side. */
+export function pointInRect(point: AnnotationPoint, rect: NormalizedRect, pad: number): boolean {
+  return (
+    point.x >= rect.left - pad &&
+    point.x <= rect.left + rect.width + pad &&
+    point.y >= rect.top - pad &&
+    point.y <= rect.top + rect.height + pad
+  );
 }
 
 /** Arrowhead length for a given stroke width, floored so thin arrows keep a visible tip. */

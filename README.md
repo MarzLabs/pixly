@@ -23,9 +23,10 @@ An extensible Chrome (Manifest V3) toolset for visual web development. Current t
   glows. Captures persist per page with when/title/URL provenance.
 - **Capture & Annotate** — capture the visible viewport, a dragged area or a single element
   (DevTools-style picker), and mark it up with arrows, lines, rectangles, ellipses, text labels
-  and emoji stamps in a full-screen editor, then download or copy the PNG. The export embeds the
-  page title, URL and capture time in a provenance header. Annotation tools are pluggable
-  modules, so adding a new shape is a single file plus one registry entry.
+  and emoji stamps in a full-screen editor; a Move mode repositions anything already drawn.
+  Download or copy the PNG — the export embeds the page title, URL and capture time in a
+  provenance header. Annotation tools are pluggable modules, so adding a new shape is a single
+  file plus one registry entry.
 
 Both tools persist per site and survive full reloads, and only activate where you turn them on. All
 of Pixly's own UI lives inside an isolated Shadow DOM, so it never pollutes the page.
