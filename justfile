@@ -85,17 +85,25 @@ bump version="patch":
 verify-version: build
     @grep '"version"' dist/manifest.json
 
-# Commit a staged version bump with the repo's release message convention
-release-commit summary:
-    git commit -m "chore(release): Bump version to $(node -p "require('./package.json').version")" -m "{{summary}}"
+# Commit a staged version bump with the repo's release message convention.
+# summary is optional — omit it for a title-only commit.
+release-commit summary="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    msg="chore(release): Bump version to $(node -p "require('./package.json').version")"
+    if [ -n "{{summary}}" ]; then
+      git commit -m "$msg" -m "{{summary}}"
+    else
+      git commit -m "$msg"
+    fi
 
 # Tag HEAD with the current package.json version (vX.Y.Z)
 tag-release:
     git tag "v$(node -p "require('./package.json').version")"
 
 # Full release flow: verify, bump, confirm the build, commit, and tag. Push is left to you.
-# Usage: just release minor "Summary of what changed since last release"
-release version summary: check
+# Usage: just release minor, or just release minor "Summary of what changed since last release"
+release version summary="": check
     just bump {{version}}
     just verify-version
     just release-commit "{{summary}}"
