@@ -4,6 +4,7 @@ import { GlobalOutlinesTool } from '@content/tools/global-outlines/global-outlin
 import { GridOverlayTool } from '@content/tools/grid-overlay/grid-overlay-tool';
 import { ImageOverlayTool } from '@content/tools/image-overlay/image-overlay-tool';
 import { RulersGuidesTool } from '@content/tools/rulers-guides/rulers-guides-tool';
+import { SnapshotCompareTool } from '@content/tools/snapshot-compare/snapshot-compare-tool';
 import type { ToolContext } from './tool';
 import { ToolRegistry } from './tool-registry';
 
@@ -22,6 +23,7 @@ export function createRegistry(contextProvider: () => ToolContext): ToolRegistry
   registry.register(new GridOverlayTool(contextProvider));
   registry.register(new RulersGuidesTool(contextProvider));
   registry.register(new DistanceMeterTool(contextProvider));
+  registry.register(new SnapshotCompareTool(contextProvider));
   registry.register(new GlobalOutlinesTool(contextProvider));
 
   return registry;

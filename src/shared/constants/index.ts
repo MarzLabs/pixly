@@ -6,6 +6,7 @@ export const TOOL_ID = {
   gridOverlay: 'grid-overlay',
   rulersGuides: 'rulers-guides',
   distanceMeter: 'distance-meter',
+  snapshotCompare: 'snapshot-compare',
 } as const;
 
 export type ToolId = (typeof TOOL_ID)[keyof typeof TOOL_ID];

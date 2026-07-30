@@ -42,6 +42,12 @@ export interface ToolCatalogEntry {
   icon: string;
   /** Infrequent configuration edited from the popup while the tool is enabled. */
   configFields?: ToolConfigField[];
+  /**
+   * When true, enabling the tool from the popup requests the site's optional host permission
+   * (chrome.permissions must be called from an extension context within a user gesture). Needed
+   * by capabilities like captureVisibleTab, where activeTab alone lapses on every navigation.
+   */
+  needsHostPermission?: boolean;
 }
 
 export const TOOL_CATALOG: ToolCatalogEntry[] = [
@@ -88,6 +94,14 @@ export const TOOL_CATALOG: ToolCatalogEntry[] = [
     description: 'Drag between two points to measure pixel distances on the page.',
     scope: 'url',
     icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20L20 4"/><circle cx="4" cy="20" r="2"/><circle cx="20" cy="4" r="2"/><path d="M9 15l1.5 1.5M13 11l1.5 1.5"/></svg>',
+  },
+  {
+    id: TOOL_ID.snapshotCompare,
+    name: 'Snapshot & Compare',
+    description: 'Capture the page and compare it against its current state.',
+    scope: 'url',
+    icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h2l2-2h6l2 2h2a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><circle cx="12" cy="13" r="4"/></svg>',
+    needsHostPermission: true,
   },
   {
     id: TOOL_ID.globalOutlines,

@@ -22,6 +22,15 @@ export type BackgroundToContentMessage = { type: 'pixly/command'; commandId: Com
 /** Everything the content script's message listener can receive. */
 export type ContentInboundMessage = PopupToContentMessage | BackgroundToContentMessage;
 
+/**
+ * Sent by a content script to the service worker: capture the tab's visible viewport.
+ * Only extension contexts can call chrome.tabs.captureVisibleTab, hence the round trip.
+ */
+export type ContentToBackgroundMessage = { type: 'pixly/capture-visible-tab' };
+
+/** Service worker reply to a capture request. */
+export type CaptureReply = { ok: true; dataUrl: string } | { ok: false; error: string };
+
 /** Reply describing what the content script knows about the current page. */
 export interface PageContext {
   href: string;

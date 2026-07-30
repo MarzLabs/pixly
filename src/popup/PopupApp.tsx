@@ -25,6 +25,7 @@ import { sendToTab } from '@shared/messaging/send';
 export function PopupApp() {
   const [config, setConfig] = useState<PixlyConfig | null>(null);
   const [tab, setTab] = useState<chrome.tabs.Tab | null>(null);
+  const [tabUnreachable, setTabUnreachable] = useState(false);
 
   useEffect(() => {
     void initialize();
@@ -48,7 +49,17 @@ export function PopupApp() {
       return;
     }
 
-    await sendToTab(tab.id, { type: 'pixly/toggle-tool', toolId: entry.id, enabled });
+    // Persistent site access for capture-dependent tools. Must fire synchronously inside the
+    // user's click (no awaits before it) or Chrome drops the permission prompt. A denial is not
+    // fatal: the tool falls back to activeTab, which the popup interaction just granted anyway.
+    if (enabled && entry.needsHostPermission && href) {
+      void requestHostPermission(href);
+    }
+
+    const reply = await sendToTab(tab.id, { type: 'pixly/toggle-tool', toolId: entry.id, enabled });
+    // An unreachable content script (page loaded before Pixly was installed/updated) would
+    // swallow toggles silently; surface it so the user knows a refresh fixes it.
+    setTabUnreachable(reply.type === 'pixly/error');
   }
 
   async function toggleGlobal(enabled: boolean): Promise<void> {
@@ -56,7 +67,8 @@ export function PopupApp() {
       return;
     }
 
-    await sendToTab(tab.id, { type: 'pixly/set-global-enabled', enabled });
+    const reply = await sendToTab(tab.id, { type: 'pixly/set-global-enabled', enabled });
+    setTabUnreachable(reply.type === 'pixly/error');
   }
 
   async function changeConfigValue(
@@ -92,6 +104,13 @@ export function PopupApp() {
 
       {!reachable && (
         <p class="popup-note">Pixly can't run on this page (browser/internal page).</p>
+      )}
+
+      {tabUnreachable && (
+        <p class="popup-note popup-note--error">
+          Pixly can't reach this page — it was loaded before Pixly started or updated. Refresh the
+          tab and try again.
+        </p>
       )}
 
       <div class="popup-tools">
@@ -238,4 +257,19 @@ function computeActiveFlags(config: PixlyConfig | null, href: string): Record<To
 /** Content scripts cannot run on browser-internal pages, so toggles are disabled there. */
 function isReachableUrl(url: string): boolean {
   return /^https?:/.test(url) || url.startsWith('file:');
+}
+
+/** Requests the optional host permission for the page's origin; resolves false when declined. */
+function requestHostPermission(href: string): Promise<boolean> {
+  try {
+    const url = new URL(href);
+
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      return Promise.resolve(false);
+    }
+
+    return chrome.permissions.request({ origins: [`${url.origin}/*`] }).catch(() => false);
+  } catch {
+    return Promise.resolve(false);
+  }
 }

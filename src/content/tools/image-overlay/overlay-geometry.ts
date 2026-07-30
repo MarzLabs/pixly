@@ -1,5 +1,5 @@
-import type { BlendMode, OverlayState } from '@shared/types';
-import { BLEND_MODES } from '@shared/types';
+import type { OverlayState } from '@shared/types';
+import { isBlendMode } from '@shared/types';
 import { clamp } from '@shared/lib/math';
 
 /**
@@ -7,7 +7,7 @@ import { clamp } from '@shared/lib/math';
  * nudge logic and clamping are unit-testable.
  */
 
-export { clamp };
+export { clamp, isBlendMode };
 
 export const MIN_OPACITY = 0;
 export const MAX_OPACITY = 1;
@@ -56,10 +56,6 @@ export function clampOpacity(value: number): number {
 
 export function clampScale(value: number): number {
   return clamp(value, MIN_SCALE, MAX_SCALE);
-}
-
-export function isBlendMode(value: string): value is BlendMode {
-  return (BLEND_MODES as readonly string[]).includes(value);
 }
 
 /**

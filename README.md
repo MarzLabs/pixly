@@ -18,6 +18,9 @@ An extensible Chrome (Manifest V3) toolset for visual web development. Current t
 - **Distance Meter** — drag between two points to measure Δx / Δy and the straight-line pixel
   distance, with endpoints snapping to element edges, Shift axis-lock, and a pause mode that
   hands the pointer back to the page.
+- **Snapshot & Compare** — capture the visible viewport and lay it back over the page in
+  `difference` blend: identical pixels turn black, anything that changed since the capture
+  glows. Captures persist per page with when/title/URL provenance.
 
 Both tools persist per site and survive full reloads, and only activate where you turn them on. All
 of Pixly's own UI lives inside an isolated Shadow DOM, so it never pollutes the page.

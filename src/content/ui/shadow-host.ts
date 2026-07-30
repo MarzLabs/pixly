@@ -10,7 +10,7 @@ import shadowStyles from './shadow-ui.css?inline';
  * toolbar above everything, rulers/guides above the overlay so they stay grabbable, the grid
  * underneath all Pixly UI.
  */
-const Z_ORDER = ['toolbar', 'meter', 'rulers', 'overlay', 'grid'] as const;
+const Z_ORDER = ['toolbar', 'meter', 'rulers', 'overlay', 'snapshot', 'grid'] as const;
 
 /**
  * Owns the single host element + Shadow DOM that contains ALL Pixly UI (toolbar, overlay, controls)

@@ -8,6 +8,7 @@
   --pixly-color-text: #f4f4f5;
   --pixly-color-text-muted: #a1a1aa;
   --pixly-color-success: #22c55e;
+  --pixly-color-danger: #ef4444;
   --pixly-radius-small: 6px;
   --pixly-radius-medium: 10px;
 }
@@ -195,4 +196,9 @@ body {
   font-size: 11px;
   color: var(--pixly-color-text-muted);
   padding: 0 16px 12px;
+}
+
+.popup-note--error {
+  color: var(--pixly-color-danger);
+  padding-top: 8px;
 }

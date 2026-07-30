@@ -20,6 +20,10 @@ export const BLEND_MODES = [
 
 export type BlendMode = (typeof BLEND_MODES)[number];
 
+export function isBlendMode(value: string): value is BlendMode {
+  return (BLEND_MODES as readonly string[]).includes(value);
+}
+
 /** Persisted state of the Image Overlay tool (light config; the binary lives in IndexedDB). */
 export interface OverlayState {
   /** Key into the IndexedDB image store; null while no image is loaded. */
@@ -132,6 +136,29 @@ export interface DistanceMeterState {
   paused: boolean;
 }
 
+/** Persisted state of the Snapshot & Compare tool (the capture binary lives in IndexedDB). */
+export interface SnapshotState {
+  /** Key into the IndexedDB image store; null while no snapshot has been captured. */
+  imageKey: string | null;
+  /** Capture timestamp (ISO 8601); null while no snapshot exists. */
+  capturedAtIso: string | null;
+  /** Document title at capture time, for provenance; null while no snapshot exists. */
+  pageTitle: string | null;
+  /** Page URL at capture time, for provenance; null while no snapshot exists. */
+  pageUrl: string | null;
+  /** Document position of the captured viewport's top-left corner. */
+  offsetX: number;
+  offsetY: number;
+  /** CSS pixel size of the captured viewport (the PNG itself is device-pixel-ratio scaled). */
+  widthPx: number;
+  heightPx: number;
+  /** 0..1 opacity of the comparison layer. */
+  opacity: number;
+  blendMode: BlendMode;
+  /** Hidden snapshots keep their capture but are not painted. */
+  hidden: boolean;
+}
+
 /** Discriminated map from tool id to its state shape. */
 export interface ToolStateMap {
   'fix-broken-images': FixBrokenImagesState;
@@ -140,6 +167,7 @@ export interface ToolStateMap {
   'grid-overlay': GridOverlayState;
   'rulers-guides': RulersGuidesState;
   'distance-meter': DistanceMeterState;
+  'snapshot-compare': SnapshotState;
 }
 
 /** Per-scope-key record of which tools are active and their serialized state. */
