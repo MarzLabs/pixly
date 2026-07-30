@@ -84,9 +84,16 @@ quien la reciba entienda al instante qué mirar y dónde reproducirlo.
 - **Estilo:** paleta de 6 colores (rojo por defecto — lee sobre cualquier página) y 3 grosores
   (2/4/7 px); el grosor también escala el tamaño del texto y de los emojis (un solo control de
   escala, métricas puras en `text-metrics.ts`). Cada anotación congela su estilo y contenido al
-  dibujarse; cambiar el estilo después no muta las existentes. Undo (botón o Ctrl/Cmd+Z; con un
-  texto abierto Ctrl+Z es el undo nativo del textarea), Clear, Esc cierra (con un texto abierto,
-  Esc primero cancela el texto).
+  dibujarse; cambiar el estilo después no muta las existentes. Esc cierra (con un texto
+  abierto, Esc primero cancela el texto).
+- **Undo con historial real** (`annotation-history.ts`, botón o Ctrl/Cmd+Z; con un texto
+  abierto Ctrl+Z es el undo nativo del textarea): cada paso deshecho revierte la última
+  acción, sea una inserción, un movimiento, un resize o un Clear (que restaura todo).
+  Snapshot-based: cada paso guarda la lista previa (las anotaciones son inmutables, así que
+  bastan copias superficiales). Un drag de mover/redimensionar colapsa en UN paso vía
+  begin/endGesture — los frames del pointermove no generan pasos y un agarre sin desplazamiento
+  no deja paso alguno. Historial acotado a 100 pasos (cae el más viejo); undo ignorado a mitad
+  de un drag activo.
 - **Export con procedencia embebida:** "Download PNG" y "Copy" (clipboard; si falla, el feedback
   redirige a Download). El export compone: banner (título en negrita, URL + fecha en muted,
   regla de acento de marca) + captura + anotaciones re-renderizadas con los MISMOS renderers del
@@ -102,9 +109,8 @@ quien la reciba entienda al instante qué mirar y dónde reproducirlo.
 
 - Persistir anotaciones o la sesión de edición entre recargas (el export es el artefacto).
 - Freehand, rotación de anotaciones, resize de texto/emoji por grips (su tamaño viene de los
-  presets de grosor), borrado individual, undo de movimientos/resizes (undo sigue quitando la
-  última anotación creada) y emojis personalizados fuera del set (el modelo de puntos + el
-  registro admiten agregarlos después).
+  presets de grosor), borrado individual, redo (solo undo lineal) y emojis personalizados
+  fuera del set (el modelo de puntos + el registro admiten agregarlos después).
 - Captura de página completa (scroll & stitch); los tres modos operan sobre el viewport
   visible (el rect de un elemento más alto que el viewport se recorta a lo visible).
 - Compartir directo a servicios externos (el PNG descargado/copiado es el canal).
@@ -130,6 +136,10 @@ quien la reciba entienda al instante qué mirar y dónde reproducirlo.
 - Unitarias (`tests/text-metrics.test.ts`): escalado de fuentes con el grosor (texto y stamp,
   stamp > texto), line height proporcional, split de líneas (CRLF, vacías interiores vs.
   finales).
+- Unitarias (`tests/annotation-history.test.ts`): undo de inserciones una a una, false sin
+  historial, drag colapsado a un paso (muchos updates → un undo al estado pre-drag), gesto sin
+  cambios sin paso, Clear undoable que restaura todo, clear vacío sin paso fantasma, updates
+  fuera de rango ignorados y tope de 100 pasos con caída del más viejo.
 - Unitarias (`tests/annotation-editor-keys.test.ts`, DOM con happy-dom): la barrera de teclado
   bloquea teclas dirigidas a la página con el editor abierto, deja que los targets internos
   del editor las reciban sin que escapen a la página, y desaparece al destruir el editor.

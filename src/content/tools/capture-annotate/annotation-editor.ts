@@ -18,6 +18,7 @@ import {
   pointInRect,
   resizeCursorForGrip,
 } from './annotation-geometry';
+import { AnnotationHistory } from './annotation-history';
 import {
   ANNOTATION_COLORS,
   buildCaptureFileName,
@@ -71,7 +72,8 @@ export class AnnotationEditor {
   /** Selected glyph per stamp tool (session-only); defaults to the tool's first glyph. */
   private readonly selectedGlyphs = new Map<string, string>();
 
-  private readonly annotations: Annotation[] = [];
+  /** Annotations plus their undo history: inserts, moves, resizes and clears all revert. */
+  private readonly history = new AnnotationHistory();
   private selection: EditorStyleSelection;
   /** In-flight drag: start point plus the latest preview end point. */
   private draft: { start: AnnotationPoint; end: AnnotationPoint } | null = null;
@@ -489,6 +491,8 @@ export class AnnotationEditor {
 
         if (grab) {
           this.canvas.setPointerCapture(event.pointerId);
+          // One history step per drag gesture, not per pointermove frame (see endGesture).
+          this.history.beginGesture();
           this.moving = { index: grab.index, last: point, grip: grab.grip };
           this.hoveredIndex = grab.index;
           this.repaint();
@@ -509,7 +513,7 @@ export class AnnotationEditor {
         const glyph = this.activeGlyph();
 
         if (glyph) {
-          this.annotations.push(this.buildAnnotation(point, point, glyph));
+          this.history.push(this.buildAnnotation(point, point, glyph));
           this.repaint();
         }
 
@@ -523,11 +527,12 @@ export class AnnotationEditor {
     this.canvas.addEventListener('pointermove', (event) => {
       if (this.moving) {
         const point = this.toCanvasPoint(event);
-        const target = this.annotations[this.moving.index];
+        const target = this.history.at(this.moving.index);
 
         if (target) {
           // A grip drag re-anchors that endpoint at the pointer; a body drag translates both.
-          this.annotations[this.moving.index] =
+          this.history.updateDuringGesture(
+            this.moving.index,
             this.moving.grip === 'whole'
               ? translateAnnotation(
                   target,
@@ -536,7 +541,8 @@ export class AnnotationEditor {
                 )
               : this.moving.grip === 'start'
                 ? { ...target, start: point }
-                : { ...target, end: point };
+                : { ...target, end: point },
+          );
           this.moving.last = point;
           this.repaint();
         }
@@ -570,6 +576,8 @@ export class AnnotationEditor {
 
     const finish = (event: PointerEvent, commit: boolean): void => {
       if (this.moving) {
+        // Zero-delta grabs leave no history step; real drags close as exactly one.
+        this.history.endGesture();
         this.moving = null;
 
         return;
@@ -587,7 +595,7 @@ export class AnnotationEditor {
 
         // Sub-pixel drags are clicks, not shapes; committing them would litter invisible marks.
         if (dragDistance(draft.start, draft.end) >= MIN_DRAG_DISTANCE_PX) {
-          this.annotations.push(this.buildAnnotation(draft.start, draft.end));
+          this.history.push(this.buildAnnotation(draft.start, draft.end));
         }
       }
 
@@ -674,7 +682,7 @@ export class AnnotationEditor {
     draft.input.remove();
 
     if (text.trim().length > 0) {
-      this.annotations.push(this.buildAnnotation(draft.point, draft.point, text));
+      this.history.push(this.buildAnnotation(draft.point, draft.point, text));
       this.repaint();
     }
   }
@@ -708,8 +716,8 @@ export class AnnotationEditor {
       return null;
     }
 
-    for (let index = this.annotations.length - 1; index >= 0; index -= 1) {
-      const annotation = this.annotations[index];
+    for (let index = this.history.count - 1; index >= 0; index -= 1) {
+      const annotation = this.history.at(index);
 
       if (!annotation) {
         continue;
@@ -751,7 +759,7 @@ export class AnnotationEditor {
       return 'move';
     }
 
-    const annotation = this.annotations[grab.index];
+    const annotation = this.history.at(grab.index);
 
     if (!annotation) {
       return 'default';
@@ -791,7 +799,7 @@ export class AnnotationEditor {
     // Annotations live in CSS pixels; the dpr transform paints them 1:1 over the screenshot.
     ctx.setTransform(this.session.dpr, 0, 0, this.session.dpr, 0, 0);
 
-    for (const annotation of this.annotations) {
+    for (const annotation of this.history.list()) {
       getAnnotationTool(annotation.toolId)?.render(ctx, annotation);
     }
 
@@ -811,7 +819,7 @@ export class AnnotationEditor {
       return;
     }
 
-    const annotation = this.annotations[this.hoveredIndex];
+    const annotation = this.history.at(this.hoveredIndex);
 
     if (!annotation || (getAnnotationTool(annotation.toolId)?.interaction ?? 'drag') !== 'drag') {
       return;
@@ -829,20 +837,21 @@ export class AnnotationEditor {
   }
 
   private undo(): void {
-    if (this.annotations.length === 0) {
+    // Mid-drag undo would leave `moving` pointing at a list that no longer matches.
+    if (this.moving) {
       return;
     }
 
-    this.annotations.pop();
-    this.repaint();
+    if (this.history.undo()) {
+      // The hovered index may no longer exist (or hold a different annotation) after undo.
+      this.hoveredIndex = null;
+      this.repaint();
+    }
   }
 
   private clearAll(): void {
-    if (this.annotations.length === 0) {
-      return;
-    }
-
-    this.annotations.length = 0;
+    this.history.clear();
+    this.hoveredIndex = null;
     this.repaint();
   }
 
@@ -936,7 +945,7 @@ export class AnnotationEditor {
       return await composeAnnotatedCapture({
         image: this.session.bitmap,
         dpr: this.session.dpr,
-        annotations: this.annotations,
+        annotations: this.history.list(),
         provenance: {
           title: this.session.title,
           url: this.session.url,
