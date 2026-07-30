@@ -81,12 +81,27 @@ bump version="patch":
     git add package.json package-lock.json
     @echo "Bumped to $(node -p "require('./package.json').version") — staged. Run 'just release-commit \"summary\"' or commit manually."
 
+# Build and confirm dist/manifest.json picked up the bumped version
+verify-version: build
+    @grep '"version"' dist/manifest.json
+
 # Commit a staged version bump with the repo's release message convention
 release-commit summary:
     git commit -m "chore(release): Bump version to $(node -p "require('./package.json').version")" -m "{{summary}}"
 
-# Full release flow: verify, bump, and commit. Push is left to you.
+# Tag HEAD with the current package.json version (vX.Y.Z)
+tag-release:
+    git tag "v$(node -p "require('./package.json').version")"
+
+# Full release flow: verify, bump, confirm the build, commit, and tag. Push is left to you.
 # Usage: just release minor "Summary of what changed since last release"
 release version summary: check
     just bump {{version}}
+    just verify-version
     just release-commit "{{summary}}"
+    just tag-release
+    @echo "Committed and tagged locally. Run 'just push-release' to publish to origin."
+
+# Push main and its tags to origin
+push-release:
+    git push origin main --tags
