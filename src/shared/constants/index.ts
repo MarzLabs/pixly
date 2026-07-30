@@ -7,6 +7,7 @@ export const TOOL_ID = {
   rulersGuides: 'rulers-guides',
   distanceMeter: 'distance-meter',
   snapshotCompare: 'snapshot-compare',
+  captureAnnotate: 'capture-annotate',
 } as const;
 
 export type ToolId = (typeof TOOL_ID)[keyof typeof TOOL_ID];

@@ -1,0 +1,102 @@
+import { describe, expect, it } from 'vitest';
+import {
+  arrowHeadLength,
+  arrowHeadPoints,
+  dragDistance,
+  ellipseFromDrag,
+  normalizedRect,
+} from '@content/tools/capture-annotate/annotation-geometry';
+
+describe('normalizedRect', () => {
+  it('keeps a top-left → bottom-right drag as-is', () => {
+    expect(normalizedRect({ x: 10, y: 20 }, { x: 40, y: 60 })).toEqual({
+      left: 10,
+      top: 20,
+      width: 30,
+      height: 40,
+    });
+  });
+
+  it('normalizes a bottom-right → top-left drag to non-negative dimensions', () => {
+    expect(normalizedRect({ x: 40, y: 60 }, { x: 10, y: 20 })).toEqual({
+      left: 10,
+      top: 20,
+      width: 30,
+      height: 40,
+    });
+  });
+
+  it('collapses a zero-length drag to an empty rect at the point', () => {
+    expect(normalizedRect({ x: 5, y: 5 }, { x: 5, y: 5 })).toEqual({
+      left: 5,
+      top: 5,
+      width: 0,
+      height: 0,
+    });
+  });
+});
+
+describe('ellipseFromDrag', () => {
+  it('inscribes the ellipse in the dragged bounds', () => {
+    expect(ellipseFromDrag({ x: 10, y: 20 }, { x: 30, y: 60 })).toEqual({
+      cx: 20,
+      cy: 40,
+      rx: 10,
+      ry: 20,
+    });
+  });
+
+  it('is direction-independent', () => {
+    expect(ellipseFromDrag({ x: 30, y: 60 }, { x: 10, y: 20 })).toEqual(
+      ellipseFromDrag({ x: 10, y: 20 }, { x: 30, y: 60 }),
+    );
+  });
+});
+
+describe('dragDistance', () => {
+  it('returns the straight-line length (3-4-5 triangle)', () => {
+    expect(dragDistance({ x: 0, y: 0 }, { x: 3, y: 4 })).toBe(5);
+  });
+
+  it('returns zero for a click without movement', () => {
+    expect(dragDistance({ x: 7, y: 7 }, { x: 7, y: 7 })).toBe(0);
+  });
+});
+
+describe('arrowHeadLength', () => {
+  it('scales with the stroke width', () => {
+    expect(arrowHeadLength(4)).toBeGreaterThan(arrowHeadLength(2));
+  });
+
+  it('never drops below the minimum visible tip', () => {
+    expect(arrowHeadLength(1)).toBe(10);
+  });
+});
+
+describe('arrowHeadPoints', () => {
+  it('folds both wings back from the tip, symmetric about a horizontal shaft', () => {
+    const head = arrowHeadPoints({ x: 0, y: 0 }, { x: 100, y: 0 }, 10);
+
+    // Both wings sit behind the tip at the same x, mirrored across the shaft.
+    expect(head.left.x).toBeCloseTo(head.right.x, 6);
+    expect(head.left.x).toBeLessThan(100);
+    expect(head.left.y).toBeCloseTo(-head.right.y, 6);
+    expect(Math.abs(head.left.y)).toBeGreaterThan(0);
+  });
+
+  it('places each wing exactly headLength away from the tip', () => {
+    const tip = { x: 40, y: -25 };
+    const head = arrowHeadPoints({ x: -10, y: 5 }, tip, 12);
+
+    expect(dragDistance(head.left, tip)).toBeCloseTo(12, 6);
+    expect(dragDistance(head.right, tip)).toBeCloseTo(12, 6);
+  });
+
+  it('degrades a zero-length shaft to a rightward-pointing head instead of NaN', () => {
+    const head = arrowHeadPoints({ x: 5, y: 5 }, { x: 5, y: 5 }, 10);
+
+    expect(Number.isFinite(head.left.x)).toBe(true);
+    expect(Number.isFinite(head.right.y)).toBe(true);
+    expect(head.left.x).toBeLessThan(5);
+  });
+});

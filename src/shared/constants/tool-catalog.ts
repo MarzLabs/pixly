@@ -112,6 +112,15 @@ export const TOOL_CATALOG: ToolCatalogEntry[] = [
     needsHostPermission: true,
   },
   {
+    id: TOOL_ID.captureAnnotate,
+    name: 'Capture & Annotate',
+    description: 'Capture the page and annotate it with arrows and shapes for sharing.',
+    help: 'Capture the visible viewport and mark it up with arrows, lines, rectangles and ellipses in a full-screen editor, then download or copy the PNG. The export embeds the page title, URL and capture time in a header, so everyone knows exactly where the capture came from.',
+    scope: 'origin',
+    icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M8 15l6-6"/><path d="M10 9h4v4"/></svg>',
+    needsHostPermission: true,
+  },
+  {
     id: TOOL_ID.globalOutlines,
     name: 'Global Outlines',
     description: 'Outline every element on the page to reveal the real layout structure.',

@@ -7,10 +7,10 @@ import shadowStyles from './shadow-ui.css?inline';
  * isolate the overlay's mix-blend-mode from the page, leaving blend modes with nothing to blend
  * against. Each top-level UI node gets its own z-index instead, derived from this single
  * top-to-bottom stacking order (emitted as `--pixly-z-<name>` CSS variables):
- * toolbar above everything, rulers/guides above the overlay so they stay grabbable, the grid
- * underneath all Pixly UI.
+ * the full-screen capture editor above everything (it is modal), then the toolbar, rulers/guides
+ * above the overlay so they stay grabbable, the grid underneath all Pixly UI.
  */
-const Z_ORDER = ['toolbar', 'meter', 'rulers', 'overlay', 'snapshot', 'grid'] as const;
+const Z_ORDER = ['editor', 'toolbar', 'meter', 'rulers', 'overlay', 'snapshot', 'grid'] as const;
 
 /**
  * Owns the single host element + Shadow DOM that contains ALL Pixly UI (toolbar, overlay, controls)

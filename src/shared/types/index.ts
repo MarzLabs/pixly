@@ -159,6 +159,19 @@ export interface SnapshotState {
   hidden: boolean;
 }
 
+/**
+ * Persisted style defaults of the Capture & Annotate tool. Only the drawing preferences persist;
+ * the annotations themselves live in the editing session and leave through the exported PNG.
+ */
+export interface CaptureAnnotateState {
+  /** Id of the last-used annotation tool; validated against the annotation tool registry. */
+  toolId: string;
+  /** Stroke color as a #rrggbb hex string. */
+  color: string;
+  /** Stroke width in CSS pixels. */
+  strokeWidthPx: number;
+}
+
 /** Discriminated map from tool id to its state shape. */
 export interface ToolStateMap {
   'fix-broken-images': FixBrokenImagesState;
@@ -168,6 +181,7 @@ export interface ToolStateMap {
   'rulers-guides': RulersGuidesState;
   'distance-meter': DistanceMeterState;
   'snapshot-compare': SnapshotState;
+  'capture-annotate': CaptureAnnotateState;
 }
 
 /** Per-scope-key record of which tools are active and their serialized state. */

@@ -598,6 +598,108 @@
   text-overflow: ellipsis;
 }
 
+/* ---- Capture & Annotate editor ---- */
+
+/* Modal full-screen editor above all other Pixly UI; the page is not interactive behind it. */
+.pixly-capture-editor {
+  position: fixed;
+  inset: 0;
+  z-index: var(--pixly-z-editor);
+  display: flex;
+  flex-direction: column;
+  background: rgba(10, 10, 12, 0.85);
+  pointer-events: auto;
+}
+
+/* Toolbar row built from the annotation tool registry plus style/history/export groups. */
+.pixly-capture-editor__topbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--pixly-spacing-sm);
+  padding: var(--pixly-spacing-sm) var(--pixly-spacing-md);
+  background: var(--pixly-color-surface);
+  border-bottom: 1px solid var(--pixly-color-border);
+}
+
+.pixly-capture-editor__group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pixly-spacing-xs);
+}
+
+.pixly-capture-editor__divider {
+  width: 1px;
+  height: 20px;
+  background: var(--pixly-color-border);
+}
+
+.pixly-capture-editor__spacer {
+  flex: 1;
+}
+
+/* Color presets; the active swatch gets a white ring so it reads over any swatch color. */
+.pixly-capture-swatch {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--pixly-color-border);
+  cursor: pointer;
+}
+
+.pixly-capture-swatch--active {
+  border-color: #ffffff;
+  box-shadow: 0 0 0 1px var(--pixly-color-text-muted);
+}
+
+/* Dot inside a stroke-width button; its size mirrors the preset it selects. */
+.pixly-capture-widthdot {
+  display: inline-block;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Scrollable stage: captures larger than the window scale down (canvas max-width) or scroll. */
+.pixly-capture-editor__stage {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--pixly-spacing-lg);
+}
+
+/* The canvas keeps its intrinsic aspect ratio; height follows the width attribute ratio. */
+.pixly-capture-editor__canvas {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  cursor: crosshair;
+  touch-action: none;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+}
+
+/* Feedback on the left, the provenance that will be embedded on export on the right. */
+.pixly-capture-editor__statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pixly-spacing-md);
+  padding: var(--pixly-spacing-sm) var(--pixly-spacing-md);
+  background: var(--pixly-color-surface);
+  border-top: 1px solid var(--pixly-color-border);
+}
+
+.pixly-capture-editor__meta {
+  color: var(--pixly-color-text-muted);
+  font-size: var(--pixly-font-size-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ---- Image overlay node ---- */
 .pixly-overlay {
   --pixly-handle-size: 12px;

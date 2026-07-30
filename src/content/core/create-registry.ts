@@ -1,3 +1,4 @@
+import { CaptureAnnotateTool } from '@content/tools/capture-annotate/capture-annotate-tool';
 import { DistanceMeterTool } from '@content/tools/distance-meter/distance-meter-tool';
 import { FixBrokenImagesTool } from '@content/tools/fix-broken-images/fix-broken-images-tool';
 import { GlobalOutlinesTool } from '@content/tools/global-outlines/global-outlines-tool';
@@ -24,6 +25,7 @@ export function createRegistry(contextProvider: () => ToolContext): ToolRegistry
   registry.register(new RulersGuidesTool(contextProvider));
   registry.register(new DistanceMeterTool(contextProvider));
   registry.register(new SnapshotCompareTool(contextProvider));
+  registry.register(new CaptureAnnotateTool(contextProvider));
   registry.register(new GlobalOutlinesTool(contextProvider));
 
   return registry;
