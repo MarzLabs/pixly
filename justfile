@@ -53,6 +53,11 @@ test-file name:
 # Run typecheck + lint + format-check + test — mirrors CI
 check: typecheck lint format-check test
 
+# Auto-fix what tooling can fix: Prettier formatting + ESLint --fix.
+# Run this when `check` fails on formatting; `release` deliberately verifies
+# rather than rewrites, so a release never silently reformats your tree.
+fix: format lint-fix
+
 # Remove build output and caches
 clean:
     rm -rf dist .vite coverage
