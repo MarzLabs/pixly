@@ -67,10 +67,14 @@ clean:
 clean-all: clean
     rm -rf node_modules
 
-# 6. Empaqueta para la Chrome Web Store
+# Build and zip dist/ for distribution (e.g. Chrome Web Store upload).
+# Filename includes the current package.json version, e.g. pixly-1.2.3.zip
 zip: build
-    cd dist && zip -r ../pixly.zip . -x '.*'
-    @echo "Created pixly.zip"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ver="$(node -p "require('./package.json').version")"
+    cd dist && zip -r "../pixly-$ver.zip" . -x '.*'
+    echo "Created pixly-$ver.zip"
 
 # Print the steps to load the unpacked extension in Chrome
 load-unpacked: build
@@ -106,13 +110,14 @@ release-commit summary="":
 tag-release:
     git tag "v$(node -p "require('./package.json').version")"
 
-# Full release flow: verify, bump, confirm the build, commit, and tag. Push is left to you.
+# Full release flow: verify, bump, confirm the build, commit, tag, and zip. Push is left to you.
 # Usage: just release minor, or just release minor "Summary of what changed since last release"
 release version summary="": check
     just bump {{version}}
     just verify-version
     just release-commit "{{summary}}"
     just tag-release
+    just zip
     @echo "Committed and tagged locally. Run 'just push-release' to publish to origin."
 
 # Push main and its tags to origin
