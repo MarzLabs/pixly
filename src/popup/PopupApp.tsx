@@ -26,6 +26,7 @@ export function PopupApp() {
   const [config, setConfig] = useState<PixlyConfig | null>(null);
   const [tab, setTab] = useState<chrome.tabs.Tab | null>(null);
   const [tabUnreachable, setTabUnreachable] = useState(false);
+  const [openHelpId, setOpenHelpId] = useState<ToolId | null>(null);
 
   useEffect(() => {
     void initialize();
@@ -123,6 +124,17 @@ export function PopupApp() {
                 <span class="tool-card__scope">{entry.scope}</span>
               </div>
               <div class="tool-card__desc">{entry.description}</div>
+
+              {entry.help && (
+                <button
+                  class="tool-card__help-toggle"
+                  onClick={() => setOpenHelpId(openHelpId === entry.id ? null : entry.id)}
+                >
+                  {openHelpId === entry.id ? 'Hide help' : "What's this for?"}
+                </button>
+              )}
+
+              {entry.help && openHelpId === entry.id && <p class="tool-card__help">{entry.help}</p>}
 
               {config && activeFlags[entry.id] && entry.configFields && (
                 <div class="tool-card__config">
