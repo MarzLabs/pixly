@@ -41,28 +41,35 @@ export const TextTool: AnnotationToolSpec = {
 
   // The label's box is its measured widest line × line count, anchored at the top-left start.
   hitTest(ctx: CanvasRenderingContext2D, annotation: Annotation, point: AnnotationPoint): boolean {
-    const lines = splitAnnotationLines(annotation.text ?? '');
+    const box = textBounds(ctx, annotation);
 
-    if (lines.length === 0) {
-      return false;
-    }
-
-    const fontSizePx = textFontSizePx(annotation.style.strokeWidthPx);
-
-    ctx.save();
-    ctx.font = `600 ${fontSizePx}px ${DESIGN_TOKENS.fontFamily}`;
-    const width = Math.max(...lines.map((line) => ctx.measureText(line).width));
-    ctx.restore();
-
-    return pointInRect(
-      point,
-      {
-        left: annotation.start.x,
-        top: annotation.start.y,
-        width,
-        height: lines.length * textLineHeightPx(fontSizePx),
-      },
-      HIT_SLACK_PX,
-    );
+    return box !== null && pointInRect(point, box, HIT_SLACK_PX);
   },
+
+  bounds: textBounds,
 };
+
+function textBounds(
+  ctx: CanvasRenderingContext2D,
+  annotation: Annotation,
+): { left: number; top: number; width: number; height: number } | null {
+  const lines = splitAnnotationLines(annotation.text ?? '');
+
+  if (lines.length === 0) {
+    return null;
+  }
+
+  const fontSizePx = textFontSizePx(annotation.style.strokeWidthPx);
+
+  ctx.save();
+  ctx.font = `600 ${fontSizePx}px ${DESIGN_TOKENS.fontFamily}`;
+  const width = Math.max(...lines.map((line) => ctx.measureText(line).width));
+  ctx.restore();
+
+  return {
+    left: annotation.start.x,
+    top: annotation.start.y,
+    width,
+    height: lines.length * textLineHeightPx(fontSizePx),
+  };
+}

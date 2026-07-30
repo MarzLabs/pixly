@@ -53,16 +53,27 @@ quien la reciba entienda al instante qué mirar y dónde reproducirlo.
   PINTAR el gesto. Set v1: flecha (cabeza escalada al grosor), línea, rectángulo, elipse
   (inscrita en el drag, estilo Figma), **texto** (multi-línea, sombra suave para legibilidad
   sobre cualquier fondo) y **emoji** (12 glifos de reacción, sellados centrados en el click).
-- **Modo Move (reposicionar y redimensionar):** botón propio del editor al inicio de la
-  toolbar (es un modo de gesto, no una herramienta de pintura, así que no vive en el registro).
-  Con Move activo, el drag sobre el cuerpo de la anotación superior bajo el puntero la traslada
-  (start y end se desplazan juntos; cursor `move`). El hit-testing del cuerpo es **por
-  herramienta** vía el método opcional `hitTest(ctx, annotation, point)` del spec: líneas y
-  flechas se agarran cerca del trazo (distancia al segmento, no su bounding box), rectángulos
-  por todo su marco, elipses por su interior elíptico (las esquinas de la caja pasan de largo),
-  texto por su caja medida (`measureText`) y emoji por un cuadrado del tamaño del sello;
-  herramientas sin `hitTest` caen a un bounding box acolchado. Elegir cualquier herramienta de
-  pintura sale del modo Move.
+- **Manipulación directa con cualquier herramienta:** presionar sobre una anotación existente
+  la agarra (mueve/redimensiona) y la selecciona en vez de dibujar; se dibuja solo al empezar
+  en espacio vacío. **Alt fuerza la acción de la herramienta** (dibujar/sellar/teclear ENCIMA
+  de una anotación existente) y el hover lo anticipa suprimiendo la afordancia de agarre. El
+  drag sobre el cuerpo traslada (start y end juntos; cursor `move`). El hit-testing del cuerpo
+  es **por herramienta** vía el método opcional `hitTest(ctx, annotation, point)` del spec:
+  líneas y flechas se agarran cerca del trazo (distancia al segmento, no su bounding box),
+  rectángulos por todo su marco, elipses por su interior elíptico (las esquinas de la caja
+  pasan de largo), texto por su caja medida (`measureText`) y emoji por un cuadrado del tamaño
+  del sello; herramientas sin `hitTest` caen a un bounding box acolchado. El botón **Move**
+  sigue existiendo como modo solo-navegación (nunca dibuja, ignora Alt); elegir cualquier
+  herramienta de pintura sale de él.
+- **Selección y reestilado:** agarrar una anotación —o crear una nueva— la deja seleccionada:
+  las de drag muestran sus grips de forma persistente y texto/emoji una caja punteada (método
+  opcional `bounds(ctx, annotation)` del spec; las herramientas de drag no lo necesitan). Con
+  una selección activa, los swatches de color y los presets de grosor **reestilan esa
+  anotación** como un paso undoable (además de actualizar el default persistido); el grosor
+  re-escala texto/emoji seleccionados — su vía de resize. **Delete/Backspace borra la
+  seleccionada** (paso undoable). Esc deselecciona antes de cerrar (capas: texto abierto →
+  selección → editor); click en espacio vacío también deselecciona; undo/clear limpian la
+  selección (los índices ya no son confiables).
 - **Resize por grips:** al hacer hover sobre una figura de drag en modo Move aparecen dos
   manijas (círculos blancos con borde del color de la anotación) en sus puntos start/end;
   arrastrar una re-ancla ese extremo al puntero — la flecha cambia su cabeza de lugar, el
@@ -108,9 +119,10 @@ quien la reciba entienda al instante qué mirar y dónde reproducirlo.
 ## 4. Fuera de alcance
 
 - Persistir anotaciones o la sesión de edición entre recargas (el export es el artefacto).
-- Freehand, rotación de anotaciones, resize de texto/emoji por grips (su tamaño viene de los
-  presets de grosor), borrado individual, redo (solo undo lineal) y emojis personalizados
-  fuera del set (el modelo de puntos + el registro admiten agregarlos después).
+- Freehand, rotación de anotaciones, resize de texto/emoji por grips (se re-escalan
+  seleccionándolos y cambiando el grosor), selección múltiple, redo (solo undo lineal) y
+  emojis personalizados fuera del set (el modelo de puntos + el registro admiten agregarlos
+  después).
 - Captura de página completa (scroll & stitch); los tres modos operan sobre el viewport
   visible (el rect de un elemento más alto que el viewport se recorta a lo visible).
 - Compartir directo a servicios externos (el PNG descargado/copiado es el canal).
@@ -131,15 +143,17 @@ quien la reciba entienda al instante qué mirar y dónde reproducirlo.
   interacción (ctx stub que graba llamadas), texto multi-línea/vacío, emoji centrado/sin glifo,
   traslación de anotaciones (puntos desplazados, estilo/texto intactos), hit-testing por
   herramienta (trazo vs. bounding box, interior de elipse vs. esquinas, caja medida del texto,
-  cuadrado del emoji, sin contenido → sin hit), layout del export (banner apilado, escala con
-  dpr, piso en 1x) y elipsado por ancho.
+  cuadrado del emoji, sin contenido → sin hit), bounds de selección (caja medida del texto,
+  cuadrado centrado del emoji, null sin contenido y en herramientas de drag), layout del
+  export (banner apilado, escala con dpr, piso en 1x) y elipsado por ancho.
 - Unitarias (`tests/text-metrics.test.ts`): escalado de fuentes con el grosor (texto y stamp,
   stamp > texto), line height proporcional, split de líneas (CRLF, vacías interiores vs.
   finales).
 - Unitarias (`tests/annotation-history.test.ts`): undo de inserciones una a una, false sin
   historial, drag colapsado a un paso (muchos updates → un undo al estado pre-drag), gesto sin
-  cambios sin paso, Clear undoable que restaura todo, clear vacío sin paso fantasma, updates
-  fuera de rango ignorados y tope de 100 pasos con caída del más viejo.
+  cambios sin paso, restyle (`update`) y borrado (`remove`) como pasos únicos undoables con
+  índices fuera de rango ignorados, Clear undoable que restaura todo, clear vacío sin paso
+  fantasma y tope de 100 pasos con caída del más viejo.
 - Unitarias (`tests/annotation-editor-keys.test.ts`, DOM con happy-dom): la barrera de teclado
   bloquea teclas dirigidas a la página con el editor abierto, deja que los targets internos
   del editor las reciban sin que escapen a la página, y desaparece al destruir el editor.
@@ -152,11 +166,14 @@ quien la reciba entienda al instante qué mirar y dónde reproducirlo.
   direcciones; preview en vivo durante el drag; click sin drag no crea nada; texto: Enter/blur
   commit, Shift+Enter multi-línea, Esc cancela solo el texto, vacío se descarta; emoji: la
   paleta aparece solo con la herramienta activa y el sello queda centrado; Move: cada tipo de
-  anotación se agarra y reposiciona (línea solo cerca del trazo, elipse no en sus esquinas),
-  la de arriba gana en solapes, el hover muestra grips en las figuras de drag y arrastrarlos
+  anotación se agarra y reposiciona con cualquier herramienta activa (línea solo cerca del
+  trazo, elipse no en sus esquinas), Alt+drag dibuja encima de una anotación existente, la de
+  arriba gana en solapes, el hover muestra grips en las figuras de drag y arrastrarlos
   redimensiona (cabeza de flecha, esquina de rect/elipse, extremo de línea) con el cursor
-  orientado, texto/emoji no muestran grips, los grips nunca aparecen en el export y elegir
-  una herramienta sale del modo; en una página con hot keys de una letra (p. ej. GitHub),
+  orientado, texto/emoji muestran caja punteada, las afordancias nunca aparecen en el export;
+  selección: lo agarrado/creado queda seleccionado, swatch/grosor lo reestilan (y el grosor
+  re-escala texto/emoji), Delete lo borra, Esc deselecciona antes de cerrar y el click en
+  vacío deselecciona; en una página con hot keys de una letra (p. ej. GitHub),
   escribir texto en el editor no dispara ningún atajo de la página; undo/clear/Esc;
   cambiar color/grosor no altera lo ya dibujado; export descarga un PNG con banner correcto
   (título/URL/fecha, elipsado en URLs largas) y las anotaciones alineadas 1:1; Copy pega en un

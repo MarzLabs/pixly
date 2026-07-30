@@ -23,8 +23,9 @@ An extensible Chrome (Manifest V3) toolset for visual web development. Current t
   glows. Captures persist per page with when/title/URL provenance.
 - **Capture & Annotate** — capture the visible viewport, a dragged area or a single element
   (DevTools-style picker), and mark it up with arrows, lines, rectangles, ellipses, text labels
-  and emoji stamps in a full-screen editor; a Move mode repositions anything already drawn and
-  resizes shapes by their endpoint grips.
+  and emoji stamps in a full-screen editor. Direct manipulation with any tool: grab an existing
+  annotation to move it, resize it by its endpoint grips, restyle or delete the selection
+  (Alt-drag draws over it), with real undo across all of it.
   Download or copy the PNG — the export embeds the page title, URL and capture time in a
   provenance header. Annotation tools are pluggable modules, so adding a new shape is a single
   file plus one registry entry.

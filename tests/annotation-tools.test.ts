@@ -220,6 +220,47 @@ describe('hitTest (move mode)', () => {
   });
 });
 
+describe('bounds (selection outline)', () => {
+  const { ctx } = createStubContext();
+  const boundsOf = (toolId: string, text?: string) => {
+    const tool = ANNOTATION_TOOLS.find((candidate) => candidate.id === toolId);
+
+    return tool?.bounds?.(ctx, buildAnnotation(toolId, text)) ?? null;
+  };
+
+  it('text bounds anchor at the start point with measured width and line count height', () => {
+    // 'hello' at 5px/char under the stub → 25px wide; 2 lines at stroke 5 → 2 × lineHeight.
+    const box = boundsOf('text', 'hello\nhi');
+
+    expect(box).not.toBeNull();
+    expect(box?.left).toBe(10);
+    expect(box?.top).toBe(10);
+    expect(box?.width).toBe(25);
+    expect(box?.height).toBeGreaterThan(0);
+  });
+
+  it('emoji bounds form a stamp-sized square centered on the click point', () => {
+    const box = boundsOf('emoji', '🔥');
+
+    expect(box).not.toBeNull();
+    expect(box?.left).toBeLessThan(10);
+    expect(box?.width).toBe(box?.height);
+    // Centered: left + width/2 === start.x.
+    expect((box?.left ?? 0) + (box?.width ?? 0) / 2).toBe(10);
+  });
+
+  it('returns null when there is nothing to outline', () => {
+    expect(boundsOf('text')).toBeNull();
+    expect(boundsOf('emoji')).toBeNull();
+  });
+
+  it('drag-shaped tools rely on grips instead of bounds', () => {
+    for (const toolId of ['arrow', 'line', 'rect', 'ellipse']) {
+      expect(boundsOf(toolId)).toBeNull();
+    }
+  });
+});
+
 describe('computeExportLayout', () => {
   it('stacks the banner above the image at 1x', () => {
     const layout = computeExportLayout(800, 600, 1);

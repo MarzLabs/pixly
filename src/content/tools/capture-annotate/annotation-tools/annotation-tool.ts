@@ -65,11 +65,21 @@ export interface AnnotationToolSpec {
   render(ctx: CanvasRenderingContext2D, annotation: Annotation): void;
 
   /**
-   * Whether `point` grabs this annotation in the editor's move mode. Optional: tools without a
+   * Whether `point` grabs this annotation for moving/selecting. Optional: tools without a
    * hit test fall back to the editor's padded bounding-box default. `ctx` is provided for
    * shapes whose bounds need canvas metrics (e.g. measured text).
    */
   hitTest?(ctx: CanvasRenderingContext2D, annotation: Annotation, point: AnnotationPoint): boolean;
+
+  /**
+   * Rect the editor outlines when this annotation is hovered/selected but has no endpoint
+   * grips (text, stamps). Optional: drag-shaped tools rely on their grips instead. Null when
+   * the annotation has nothing visible to outline.
+   */
+  bounds?(
+    ctx: CanvasRenderingContext2D,
+    annotation: Annotation,
+  ): { left: number; top: number; width: number; height: number } | null;
 }
 
 /** A copy of the annotation shifted by (dx, dy); how the editor's move mode repositions. */

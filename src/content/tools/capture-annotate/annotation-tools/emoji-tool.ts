@@ -48,21 +48,27 @@ export const EmojiTool: AnnotationToolSpec = {
 
   // A square of the stamp's font size, centered on the click point like the glyph itself.
   hitTest(_ctx: CanvasRenderingContext2D, annotation: Annotation, point: AnnotationPoint): boolean {
-    if (!annotation.text) {
-      return false;
-    }
+    const box = stampBounds(annotation);
 
-    const half = stampFontSizePx(annotation.style.strokeWidthPx) / 2;
-
-    return pointInRect(
-      point,
-      {
-        left: annotation.start.x - half,
-        top: annotation.start.y - half,
-        width: half * 2,
-        height: half * 2,
-      },
-      HIT_SLACK_PX,
-    );
+    return box !== null && pointInRect(point, box, HIT_SLACK_PX);
   },
+
+  bounds: (_ctx: CanvasRenderingContext2D, annotation: Annotation) => stampBounds(annotation),
 };
+
+function stampBounds(
+  annotation: Annotation,
+): { left: number; top: number; width: number; height: number } | null {
+  if (!annotation.text) {
+    return null;
+  }
+
+  const half = stampFontSizePx(annotation.style.strokeWidthPx) / 2;
+
+  return {
+    left: annotation.start.x - half,
+    top: annotation.start.y - half,
+    width: half * 2,
+    height: half * 2,
+  };
+}

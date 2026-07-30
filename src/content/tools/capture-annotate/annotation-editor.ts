@@ -88,8 +88,13 @@ export class AnnotationEditor {
    */
   private moving: { index: number; last: AnnotationPoint; grip: AnnotationGrip | 'whole' } | null =
     null;
-  /** Annotation under the pointer in idle move mode; its grips are painted as affordances. */
+  /** Annotation under the pointer while idle; its grips/outline are painted as affordances. */
   private hoveredIndex: number | null = null;
+  /**
+   * Persistently selected annotation (set by grabbing or by creating one): color swatches and
+   * width presets restyle it, Delete removes it, Esc deselects it.
+   */
+  private selectedIndex: number | null = null;
   private exporting = false;
 
   /** CSS-pixel size of the screenshot, the coordinate space annotations live in. */
@@ -141,7 +146,8 @@ export class AnnotationEditor {
 
     this.feedbackEl = document.createElement('span');
     this.feedbackEl.className = 'pixly-feedback';
-    this.feedbackEl.textContent = 'Drag on the capture to draw.';
+    this.feedbackEl.textContent =
+      'Drag to draw. Grab any annotation to move, resize or restyle it; Alt-drag draws over it.';
 
     this.root.appendChild(this.buildTopbar());
     this.root.appendChild(this.glyphBar);
@@ -373,8 +379,34 @@ export class AnnotationEditor {
     }
 
     this.selection = { ...this.selection, ...partial };
+
+    // A style facet (not the tool) restyles the selected annotation too, as one undoable
+    // step — width also re-scales selected text/emoji, their select-then-resize path.
+    if (
+      this.selectedIndex !== null &&
+      (partial.color !== undefined || partial.strokeWidthPx !== undefined)
+    ) {
+      const target = this.history.at(this.selectedIndex);
+
+      if (target) {
+        this.history.update(this.selectedIndex, {
+          ...target,
+          style: { color: this.selection.color, strokeWidthPx: this.selection.strokeWidthPx },
+        });
+        this.repaint();
+      }
+    }
+
     this.syncSelectionButtons();
     this.callbacks.onStyleChange({ ...this.selection });
+  }
+
+  /** Changes the persistent selection, repainting only when it actually changed. */
+  private selectIndex(index: number | null): void {
+    if (this.selectedIndex !== index) {
+      this.selectedIndex = index;
+      this.repaint();
+    }
   }
 
   private setMoveMode(enabled: boolean): void {
@@ -410,15 +442,19 @@ export class AnnotationEditor {
       button.classList.toggle('pixly-tab--active', widthPx === this.selection.strokeWidthPx);
     }
 
-    const interaction = this.activeInteraction();
-    this.canvas.style.cursor = this.moveMode
-      ? 'default'
-      : interaction === 'text'
-        ? 'text'
-        : interaction === 'stamp'
-          ? 'copy'
-          : 'crosshair';
+    this.canvas.style.cursor = this.baseCursor();
     this.refreshGlyphBar();
+  }
+
+  /** Cursor over empty canvas for the current mode/tool; hover over annotations overrides it. */
+  private baseCursor(): string {
+    if (this.moveMode) {
+      return 'default';
+    }
+
+    const interaction = this.activeInteraction();
+
+    return interaction === 'text' ? 'text' : interaction === 'stamp' ? 'copy' : 'crosshair';
   }
 
   /** Gesture the active tool needs; tools without a declared interaction are drag-shaped. */
@@ -486,18 +522,27 @@ export class AnnotationEditor {
 
       const point = this.toCanvasPoint(event);
 
+      // Direct manipulation with ANY tool: a press on an existing annotation grabs and
+      // selects it instead of drawing. Alt forces the tool action (draw over an existing
+      // annotation); move mode ignores Alt — grabbing is all it does.
+      const grab = event.altKey && !this.moveMode ? null : this.grabAt(point);
+
+      if (grab) {
+        this.canvas.setPointerCapture(event.pointerId);
+        // One history step per drag gesture, not per pointermove frame (see endGesture).
+        this.history.beginGesture();
+        this.moving = { index: grab.index, last: point, grip: grab.grip };
+        this.selectedIndex = grab.index;
+        this.hoveredIndex = grab.index;
+        this.repaint();
+
+        return;
+      }
+
+      // Empty space: any active selection dissolves before the tool acts.
+      this.selectIndex(null);
+
       if (this.moveMode) {
-        const grab = this.grabAt(point);
-
-        if (grab) {
-          this.canvas.setPointerCapture(event.pointerId);
-          // One history step per drag gesture, not per pointermove frame (see endGesture).
-          this.history.beginGesture();
-          this.moving = { index: grab.index, last: point, grip: grab.grip };
-          this.hoveredIndex = grab.index;
-          this.repaint();
-        }
-
         return;
       }
 
@@ -514,6 +559,8 @@ export class AnnotationEditor {
 
         if (glyph) {
           this.history.push(this.buildAnnotation(point, point, glyph));
+          // Fresh annotations start selected, so a wrong color is one swatch click away.
+          this.selectedIndex = this.history.count - 1;
           this.repaint();
         }
 
@@ -550,10 +597,12 @@ export class AnnotationEditor {
         return;
       }
 
-      // Idle move mode: show grips on the hovered annotation and shape the cursor to the grab.
-      if (this.moveMode) {
+      // Idle hover in ANY mode: grabbable annotations advertise themselves (grips/outline +
+      // grab cursor); over empty space the active tool's own cursor returns. Alt previews
+      // the forced-draw escape hatch by suppressing the grab affordance.
+      if (!this.draft) {
         const point = this.toCanvasPoint(event);
-        const grab = this.grabAt(point);
+        const grab = event.altKey && !this.moveMode ? null : this.grabAt(point);
         const hoveredIndex = grab?.index ?? null;
 
         if (hoveredIndex !== this.hoveredIndex) {
@@ -561,12 +610,8 @@ export class AnnotationEditor {
           this.repaint();
         }
 
-        this.canvas.style.cursor = this.cursorForGrab(grab);
+        this.canvas.style.cursor = grab ? this.cursorForGrab(grab) : this.baseCursor();
 
-        return;
-      }
-
-      if (!this.draft) {
         return;
       }
 
@@ -596,6 +641,8 @@ export class AnnotationEditor {
         // Sub-pixel drags are clicks, not shapes; committing them would litter invisible marks.
         if (dragDistance(draft.start, draft.end) >= MIN_DRAG_DISTANCE_PX) {
           this.history.push(this.buildAnnotation(draft.start, draft.end));
+          // Fresh annotations start selected, so a wrong color is one swatch click away.
+          this.selectedIndex = this.history.count - 1;
         }
       }
 
@@ -683,6 +730,8 @@ export class AnnotationEditor {
 
     if (text.trim().length > 0) {
       this.history.push(this.buildAnnotation(draft.point, draft.point, text));
+      // Fresh annotations start selected, so a wrong color is one swatch click away.
+      this.selectedIndex = this.history.count - 1;
       this.repaint();
     }
   }
@@ -810,29 +859,54 @@ export class AnnotationEditor {
       );
     }
 
-    this.paintGrips(ctx);
+    this.paintSelectionAffordances(ctx);
   }
 
-  /** Resize grips on the annotation hovered (or being dragged) in move mode. */
-  private paintGrips(ctx: CanvasRenderingContext2D): void {
-    if (!this.moveMode || this.hoveredIndex === null) {
-      return;
-    }
+  /**
+   * Grab/selection affordances for the hovered and selected annotations: endpoint grips on
+   * drag-shaped ones, a dashed outline (via the tool's optional bounds) on text and stamps.
+   * Editor-only visuals — the export re-renders from the clean annotation list.
+   */
+  private paintSelectionAffordances(ctx: CanvasRenderingContext2D): void {
+    const indices = new Set([this.hoveredIndex, this.selectedIndex]);
 
-    const annotation = this.history.at(this.hoveredIndex);
+    for (const index of indices) {
+      if (index === null) {
+        continue;
+      }
 
-    if (!annotation || (getAnnotationTool(annotation.toolId)?.interaction ?? 'drag') !== 'drag') {
-      return;
-    }
+      const annotation = this.history.at(index);
 
-    for (const point of [annotation.start, annotation.end]) {
-      ctx.beginPath();
-      ctx.arc(point.x, point.y, GRIP_VISUAL_RADIUS_PX, 0, Math.PI * 2);
-      ctx.fillStyle = '#ffffff';
-      ctx.fill();
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = annotation.style.color;
-      ctx.stroke();
+      if (!annotation) {
+        continue;
+      }
+
+      const tool = getAnnotationTool(annotation.toolId);
+
+      if ((tool?.interaction ?? 'drag') === 'drag') {
+        for (const point of [annotation.start, annotation.end]) {
+          ctx.beginPath();
+          ctx.arc(point.x, point.y, GRIP_VISUAL_RADIUS_PX, 0, Math.PI * 2);
+          ctx.fillStyle = '#ffffff';
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = annotation.style.color;
+          ctx.stroke();
+        }
+
+        continue;
+      }
+
+      const bounds = tool?.bounds?.(ctx, annotation);
+
+      if (bounds) {
+        ctx.save();
+        ctx.setLineDash([4, 3]);
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = annotation.style.color;
+        ctx.strokeRect(bounds.left - 3, bounds.top - 3, bounds.width + 6, bounds.height + 6);
+        ctx.restore();
+      }
     }
   }
 
@@ -843,14 +917,28 @@ export class AnnotationEditor {
     }
 
     if (this.history.undo()) {
-      // The hovered index may no longer exist (or hold a different annotation) after undo.
+      // Indices may no longer exist (or hold different annotations) after undo.
       this.hoveredIndex = null;
+      this.selectedIndex = null;
       this.repaint();
     }
   }
 
   private clearAll(): void {
     this.history.clear();
+    this.hoveredIndex = null;
+    this.selectedIndex = null;
+    this.repaint();
+  }
+
+  /** Deletes the selected annotation (Delete/Backspace) as one undoable step. */
+  private deleteSelected(): void {
+    if (this.selectedIndex === null || this.moving) {
+      return;
+    }
+
+    this.history.remove(this.selectedIndex);
+    this.selectedIndex = null;
     this.hoveredIndex = null;
     this.repaint();
   }
@@ -860,9 +948,15 @@ export class AnnotationEditor {
       event.preventDefault();
       event.stopPropagation();
 
-      // Esc backs out one layer at a time: first the open text entry, then the editor.
+      // Esc backs out one layer at a time: text entry, then selection, then the editor.
       if (this.textDraft) {
         this.cancelTextDraft();
+
+        return;
+      }
+
+      if (this.selectedIndex !== null) {
+        this.selectIndex(null);
 
         return;
       }
@@ -870,6 +964,16 @@ export class AnnotationEditor {
       this.callbacks.onClose();
 
       return;
+    }
+
+    if ((event.key === 'Delete' || event.key === 'Backspace') && !this.textDraft) {
+      if (this.selectedIndex !== null) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.deleteSelected();
+
+        return;
+      }
     }
 
     // While typing, Ctrl+Z belongs to the textarea's native undo, not annotation history —

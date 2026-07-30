@@ -76,6 +76,55 @@ describe('AnnotationHistory', () => {
     expect(history.canUndo).toBe(false);
   });
 
+  it('makes a restyle (update) a single undoable step', () => {
+    const history = new AnnotationHistory();
+    history.push(buildAnnotation(0));
+
+    const restyled = { ...buildAnnotation(0), style: { color: '#3B82F6', strokeWidthPx: 7 } };
+    history.update(0, restyled);
+    expect(history.at(0)?.style.color).toBe('#3B82F6');
+
+    expect(history.undo()).toBe(true);
+    expect(history.at(0)?.style.color).toBe('#EF4444');
+  });
+
+  it('ignores updates on out-of-range indices without leaving a step', () => {
+    const history = new AnnotationHistory();
+    history.push(buildAnnotation(0));
+
+    history.update(5, buildAnnotation(999));
+    expect(history.at(0)?.start.x).toBe(0);
+
+    expect(history.undo()).toBe(true);
+    expect(history.list()).toHaveLength(0);
+  });
+
+  it('makes removing one annotation a single undoable step', () => {
+    const history = new AnnotationHistory();
+    history.push(buildAnnotation(0, 'a'));
+    history.push(buildAnnotation(100, 'b'));
+
+    history.remove(0);
+    expect(history.list()).toHaveLength(1);
+    expect(history.at(0)?.text).toBe('b');
+
+    expect(history.undo()).toBe(true);
+    expect(history.list()).toHaveLength(2);
+    expect(history.at(0)?.text).toBe('a');
+  });
+
+  it('ignores removals on out-of-range indices without leaving a step', () => {
+    const history = new AnnotationHistory();
+    history.push(buildAnnotation(0));
+
+    history.remove(-1);
+    history.remove(3);
+    expect(history.list()).toHaveLength(1);
+
+    expect(history.undo()).toBe(true);
+    expect(history.canUndo).toBe(false);
+  });
+
   it('makes clear undoable, restoring every annotation', () => {
     const history = new AnnotationHistory();
     history.push(buildAnnotation(0, 'a'));

@@ -43,6 +43,26 @@ export class AnnotationHistory {
     this.current.push(annotation);
   }
 
+  /** Replaces one annotation as a single undoable step (e.g. restyling a selection). */
+  update(index: number, annotation: Annotation): void {
+    if (index < 0 || index >= this.current.length) {
+      return;
+    }
+
+    this.checkpoint();
+    this.current[index] = annotation;
+  }
+
+  /** Removes one annotation as a single undoable step (e.g. deleting a selection). */
+  remove(index: number): void {
+    if (index < 0 || index >= this.current.length) {
+      return;
+    }
+
+    this.checkpoint();
+    this.current.splice(index, 1);
+  }
+
   /** Empties the list as one undoable step; a no-op when already empty. */
   clear(): void {
     if (this.current.length === 0) {
