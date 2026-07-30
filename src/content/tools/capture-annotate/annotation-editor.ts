@@ -96,6 +96,19 @@ export class AnnotationEditor {
 
   private readonly onKeyDown = (event: KeyboardEvent): void => this.handleKeyDown(event);
 
+  /**
+   * Outer half of the modal keyboard barrier, for keypress/keyup (keydown runs through
+   * handleKeyDown). Shadow DOM retargeting makes the page see editor keystrokes with the plain
+   * host div as target, so page hotkey handlers ("is the user typing in a field?") misfire —
+   * e.g. GitHub's single-letter shortcuts while typing a label. While the editor is open, no
+   * key event that is not headed into the editor's own DOM may propagate to the page.
+   */
+  private readonly onKeyGuard = (event: KeyboardEvent): void => {
+    if (!this.isInsideEditor(event)) {
+      event.stopPropagation();
+    }
+  };
+
   constructor(
     parent: HTMLElement,
     private readonly session: CaptureSession,
@@ -137,6 +150,19 @@ export class AnnotationEditor {
     this.installPointerHandlers();
     window.addEventListener('keydown', this.onKeyDown, true);
 
+    // Modal keyboard barrier, in two halves. Outer half (window, capture phase): keys NOT
+    // aimed at the editor's own DOM stop here, so the page never sees them; keys aimed at the
+    // editor keep descending — the text entry needs them. Inner half (editor root, bubble
+    // phase): those editor-bound keys stop at the boundary on the way back out, so retargeted
+    // events never reach page hotkey handlers (see onKeyGuard). Root listeners die with the
+    // root, so only the window halves need teardown in destroy().
+    window.addEventListener('keypress', this.onKeyGuard, true);
+    window.addEventListener('keyup', this.onKeyGuard, true);
+
+    for (const type of ['keydown', 'keypress', 'keyup'] as const) {
+      this.root.addEventListener(type, (event) => event.stopPropagation());
+    }
+
     this.syncSelectionButtons();
     this.repaint();
   }
@@ -151,6 +177,8 @@ export class AnnotationEditor {
     // Discarded, not committed: destroy() must never paint on the about-to-close bitmap.
     this.cancelTextDraft();
     window.removeEventListener('keydown', this.onKeyDown, true);
+    window.removeEventListener('keypress', this.onKeyGuard, true);
+    window.removeEventListener('keyup', this.onKeyGuard, true);
     this.root.remove();
     this.session.bitmap.close();
   }
@@ -835,16 +863,33 @@ export class AnnotationEditor {
       return;
     }
 
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
-      // While typing, Ctrl+Z belongs to the textarea's native undo, not annotation history.
-      if (this.textDraft) {
-        return;
-      }
-
+    // While typing, Ctrl+Z belongs to the textarea's native undo, not annotation history —
+    // it falls through to the barrier below like any other editor-bound key.
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !this.textDraft) {
       event.preventDefault();
       event.stopPropagation();
       this.undo();
+
+      return;
     }
+
+    // Outer half of the modal keyboard barrier for keydown (see onKeyGuard): anything not
+    // headed into the editor's own DOM must not reach the page's hotkey handlers.
+    if (!this.isInsideEditor(event)) {
+      event.stopPropagation();
+    }
+  }
+
+  /**
+   * Whether the event's REAL target lives inside the editor. composedPath pierces the open
+   * shadow boundary, so this works from a window-level listener where `event.target` has
+   * already been retargeted to the shadow host.
+   */
+  private isInsideEditor(event: Event): boolean {
+    const target =
+      typeof event.composedPath === 'function' ? event.composedPath()[0] : event.target;
+
+    return target instanceof Node && this.root.contains(target);
   }
 
   // ---- Export -----------------------------------------------------------

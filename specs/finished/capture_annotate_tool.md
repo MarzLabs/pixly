@@ -72,6 +72,15 @@ quien la reciba entienda al instante qué mirar y dónde reproducirlo.
   figura colapsada gana el grip `end`, que es lo que permite volver a abrirla. Texto y emoji
   no se redimensionan por grips: su tamaño lo dictan los presets de grosor. Los grips son
   cosa del editor (solo del repaint del hover); jamás salen en el export.
+- **Barrera de teclado modal:** con el editor abierto, ningún evento de teclado llega a la
+  página. Sin esto, el retargeting del Shadow DOM hace que la página vea las teclas del
+  editor con el host `<div>` como target (no un campo editable), y los hot keys de una letra
+  (GitHub, Gmail…) se disparan mientras el usuario escribe una etiqueta. Dos mitades: en
+  `window` (fase de captura) se frenan las teclas que NO van hacia el DOM del editor —
+  `composedPath()[0]` da el target real a través del shadow root abierto —, y las que sí van
+  (el textarea las necesita) se frenan en el borde del editor al subir (bubble en el root),
+  cubriendo `keydown`/`keypress`/`keyup`. Esc y Ctrl+Z del editor siguen funcionando; la
+  barrera muere con el editor.
 - **Estilo:** paleta de 6 colores (rojo por defecto — lee sobre cualquier página) y 3 grosores
   (2/4/7 px); el grosor también escala el tamaño del texto y de los emojis (un solo control de
   escala, métricas puras en `text-metrics.ts`). Cada anotación congela su estilo y contenido al
@@ -121,6 +130,9 @@ quien la reciba entienda al instante qué mirar y dónde reproducirlo.
 - Unitarias (`tests/text-metrics.test.ts`): escalado de fuentes con el grosor (texto y stamp,
   stamp > texto), line height proporcional, split de líneas (CRLF, vacías interiores vs.
   finales).
+- Unitarias (`tests/annotation-editor-keys.test.ts`, DOM con happy-dom): la barrera de teclado
+  bloquea teclas dirigidas a la página con el editor abierto, deja que los targets internos
+  del editor las reciban sin que escapen a la página, y desaparece al destruir el editor.
 - Unitarias (`tests/capture-region.test.ts`): viabilidad mínima, clipping al viewport
   (overflow y fuera de pantalla) y mapeo región CSS → crop en píxeles de dispositivo (escala
   por dpr, clamp al bitmap, región inaplicable → null, dpr no positivo → 1).
@@ -134,7 +146,8 @@ quien la reciba entienda al instante qué mirar y dónde reproducirlo.
   la de arriba gana en solapes, el hover muestra grips en las figuras de drag y arrastrarlos
   redimensiona (cabeza de flecha, esquina de rect/elipse, extremo de línea) con el cursor
   orientado, texto/emoji no muestran grips, los grips nunca aparecen en el export y elegir
-  una herramienta sale del modo; undo/clear/Esc;
+  una herramienta sale del modo; en una página con hot keys de una letra (p. ej. GitHub),
+  escribir texto en el editor no dispara ningún atajo de la página; undo/clear/Esc;
   cambiar color/grosor no altera lo ya dibujado; export descarga un PNG con banner correcto
   (título/URL/fecha, elipsado en URLs largas) y las anotaciones alineadas 1:1; Copy pega en un
   editor externo; las preferencias de estilo sobreviven recargas; la captura NO incluye la UI
