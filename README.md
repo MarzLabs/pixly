@@ -15,6 +15,9 @@ An extensible Chrome (Manifest V3) toolset for visual web development. Current t
 - **Rulers & Guides** — pixel rulers on the page edges (document coordinates, scroll-aware) with
   draggable guide lines: drag out of a ruler to create one, drop it back to delete it. Guides
   persist per page.
+- **Distance Meter** — drag between two points to measure Δx / Δy and the straight-line pixel
+  distance, with endpoints snapping to element edges, Shift axis-lock, and a pause mode that
+  hands the pointer back to the page.
 
 Both tools persist per site and survive full reloads, and only activate where you turn them on. All
 of Pixly's own UI lives inside an isolated Shadow DOM, so it never pollutes the page.

@@ -83,6 +83,13 @@ export const TOOL_CATALOG: ToolCatalogEntry[] = [
     icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v5H3z"/><path d="M3 3v18h5V3"/><path d="M7 8v-2M11 8v-2M15 8v-2M19 8v-2M8 7h-2M8 11h-2M8 15h-2M8 19h-2"/></svg>',
   },
   {
+    id: TOOL_ID.distanceMeter,
+    name: 'Distance Meter',
+    description: 'Drag between two points to measure pixel distances on the page.',
+    scope: 'url',
+    icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20L20 4"/><circle cx="4" cy="20" r="2"/><circle cx="20" cy="4" r="2"/><path d="M9 15l1.5 1.5M13 11l1.5 1.5"/></svg>',
+  },
+  {
     id: TOOL_ID.globalOutlines,
     name: 'Global Outlines',
     description: 'Outline every element on the page to reveal the real layout structure.',

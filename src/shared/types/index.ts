@@ -97,6 +97,41 @@ export interface RulersGuidesState {
   guides: GuideLine[];
 }
 
+/** A measured segment between two points, in document coordinates. */
+export interface MeasurementSegment {
+  ax: number;
+  ay: number;
+  bx: number;
+  by: number;
+}
+
+/** Document-coordinate rect of an element an endpoint snapped to, echoed while the measurement lives. */
+export interface SnapTargetRect {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+/** A committed measurement: the segment plus the element rects its endpoints snapped to. */
+export interface Measurement {
+  segment: MeasurementSegment;
+  /** Element rect the START endpoint snapped to when measured, or null if it did not snap. */
+  startSnap: SnapTargetRect | null;
+  /** Element rect the END endpoint snapped to when measured, or null if it did not snap. */
+  endSnap: SnapTargetRect | null;
+}
+
+/** Persisted state of the Distance Meter tool. */
+export interface DistanceMeterState {
+  /** Committed measurements, kept visible across reloads (bounded FIFO). */
+  measurements: Measurement[];
+  /** Endpoint snap radius in pixels; 0 disables snapping. */
+  snapRadiusPx: number;
+  /** Paused meters let clicks pass through to the page while keeping the figures visible. */
+  paused: boolean;
+}
+
 /** Discriminated map from tool id to its state shape. */
 export interface ToolStateMap {
   'fix-broken-images': FixBrokenImagesState;
@@ -104,6 +139,7 @@ export interface ToolStateMap {
   'global-outlines': GlobalOutlinesState;
   'grid-overlay': GridOverlayState;
   'rulers-guides': RulersGuidesState;
+  'distance-meter': DistanceMeterState;
 }
 
 /** Per-scope-key record of which tools are active and their serialized state. */
