@@ -19,6 +19,8 @@ import { sendToTab } from '@shared/messaging/send';
  * Pixly popup (spec §8, RF-UI-2). Shows every tool from the catalog as a grid of toggle tiles —
  * one click on a tile enables/disables the tool on this site — plus a global enable switch. The
  * column count lives in a single CSS variable (--popup-grid-columns in popup.css). Each tile's
+ * Hovering (or keyboard-focusing) a tile previews the tool's help note in the fixed hint bar at
+ * the bottom of the popup — no popover, so nothing occludes the grid while scanning. Each tile's
  * "?" button opens a detail panel under the grid with the tool's description, help note and the
  * set-and-forget config fields declared in the catalog — live controls stay in the in-page widget.
  * Toggling never mutates the page directly: it asks the active tab's content script, which updates
@@ -30,6 +32,7 @@ export function PopupApp() {
   const [tab, setTab] = useState<chrome.tabs.Tab | null>(null);
   const [tabUnreachable, setTabUnreachable] = useState(false);
   const [detailToolId, setDetailToolId] = useState<ToolId | null>(null);
+  const [hoveredToolId, setHoveredToolId] = useState<ToolId | null>(null);
 
   useEffect(() => {
     void initialize();
@@ -98,6 +101,7 @@ export function PopupApp() {
   const activeFlags = useMemo(() => computeActiveFlags(config, href), [config, href]);
   const globalEnabled = config?.globalEnabled ?? true;
   const detailEntry = TOOL_CATALOG.find((entry) => entry.id === detailToolId) ?? null;
+  const hoveredEntry = TOOL_CATALOG.find((entry) => entry.id === hoveredToolId) ?? null;
 
   return (
     <div>
@@ -123,12 +127,18 @@ export function PopupApp() {
           const active = activeFlags[entry.id] ?? false;
 
           return (
-            <div key={entry.id} class={`tool-tile${active ? ' tool-tile--active' : ''}`}>
+            <div
+              key={entry.id}
+              class={`tool-tile${active ? ' tool-tile--active' : ''}`}
+              onMouseEnter={() => setHoveredToolId(entry.id)}
+              onMouseLeave={() => setHoveredToolId(null)}
+              onFocusCapture={() => setHoveredToolId(entry.id)}
+              onBlurCapture={() => setHoveredToolId(null)}
+            >
               <button
                 class="tool-tile__toggle"
                 disabled={!reachable || !globalEnabled}
                 aria-pressed={active}
-                title={entry.description}
                 onClick={() => void toggleTool(entry, !active)}
               >
                 <span class="tool-tile__icon" dangerouslySetInnerHTML={{ __html: entry.icon }} />
@@ -190,9 +200,17 @@ export function PopupApp() {
         />
       </div>
 
-      <p class="popup-note">
-        Tools stay active on this site across reloads, and only where you turn them on. Live
-        controls live in the on-page Pixly pill — click it to expand them.
+      {/* Fixed hint bar: previews the hovered/focused tool's help without occluding the grid. */}
+      <p class="popup-note popup-note--hint" aria-live="polite">
+        {hoveredEntry ? (
+          <>
+            <span class="popup-note__tool">{hoveredEntry.name}.</span>{' '}
+            {hoveredEntry.help ?? hoveredEntry.description}
+          </>
+        ) : (
+          'Tools stay active on this site across reloads, and only where you turn them on. Live ' +
+          'controls live in the on-page Pixly pill — click it to expand them.'
+        )}
       </p>
     </div>
   );

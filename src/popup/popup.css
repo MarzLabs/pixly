@@ -313,3 +313,19 @@ body {
   color: var(--pixly-color-danger);
   padding-top: 8px;
 }
+
+/*
+ * Bottom hint bar: swaps the default note for the hovered/focused tool's help. The reserved
+ * min-height fits the longest catalog help text, so the popup doesn't resize while the cursor
+ * sweeps across the grid.
+ */
+.popup-note--hint {
+  margin: 0;
+  min-height: 104px;
+  line-height: 1.45;
+}
+
+.popup-note__tool {
+  color: var(--pixly-color-text);
+  font-weight: 600;
+}
