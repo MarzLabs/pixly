@@ -14,13 +14,19 @@ import type { CaptureRegion, RegionPick } from './capture-region';
 import { isViableRegion, regionToDeviceCrop } from './capture-region';
 import { pickElementRegion } from './element-picker';
 import { selectRegion } from './region-selector';
-
-/** What the capture photographs: the full view, a dragged area, or a picked element's box. */
-export type CaptureMode = 'view' | 'area' | 'element';
+import type { FullPageCaptureResult } from './scroll-capture';
+import { captureFullPage } from './scroll-capture';
 
 /**
- * Capture & Annotate (spec: capture_annotate_tool). Scope `origin`. Captures the visible
- * viewport, a dragged area of it, or a single element's box (via the service worker, like
+ * What the capture photographs: the full view, the whole page (scroll & stitch), a dragged
+ * area, or a picked element's box.
+ */
+export type CaptureMode = 'view' | 'page' | 'area' | 'element';
+
+/**
+ * Capture & Annotate (specs: capture_annotate_tool, full_page_capture). Scope `origin`.
+ * Captures the visible viewport, the full page (scrolled viewport by viewport and stitched into
+ * one tall bitmap), a dragged area, or a single element's box (via the service worker, like
  * Snapshot & Compare — scoped modes crop the viewport PNG) and opens a full-screen editor to
  * draw arrows, lines, rectangles, ellipses, text labels and emoji stamps over it. The exported
  * PNG embeds the page title, URL and capture time in a provenance banner, so a shared capture
@@ -30,7 +36,7 @@ export type CaptureMode = 'view' | 'area' | 'element';
 export class CaptureAnnotateTool implements Tool<'capture-annotate'> {
   readonly id = TOOL_ID.captureAnnotate;
   readonly name = 'Capture & Annotate';
-  readonly description = 'Capture the page, an area or an element and annotate it for sharing.';
+  readonly description = 'Capture the view, the full page, an area or an element and annotate it.';
   readonly icon =
     '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M8 15l6-6"/><path d="M10 9h4v4"/></svg>';
   readonly scope = 'origin' as const;
@@ -96,6 +102,17 @@ export class CaptureAnnotateTool implements Tool<'capture-annotate'> {
           h(
             'button',
             {
+              key: 'page',
+              className: 'pixly-btn',
+              disabled: busy,
+              title: 'Scroll through the page and capture its full height',
+              onClick: () => void this.captureAndEdit('page'),
+            },
+            'Page',
+          ),
+          h(
+            'button',
+            {
               key: 'area',
               className: 'pixly-btn',
               disabled: busy,
@@ -146,7 +163,8 @@ export class CaptureAnnotateTool implements Tool<'capture-annotate'> {
    * Full capture round trip. Scoped modes first run their picker overlay (drag marquee or
    * element highlight) to select a viewport region; then Pixly's own UI is hidden, a painted
    * frame is awaited, the service worker returns the visible-tab PNG (scoped modes crop it to
-   * the region), and the annotation editor opens on the decoded bitmap.
+   * the region), and the annotation editor opens on the decoded bitmap. Page mode has its own
+   * multi-slice pipeline (scroll & stitch) but lands in the same editor.
    */
   private async captureAndEdit(mode: CaptureMode): Promise<void> {
     if (this.capturing || this.activePick || this.editor || !this.context) {
@@ -157,6 +175,12 @@ export class CaptureAnnotateTool implements Tool<'capture-annotate'> {
 
     if (!layer) {
       this.setFeedback('Pixly UI layer missing; cannot capture.', true);
+
+      return;
+    }
+
+    if (mode === 'page') {
+      await this.captureFullPageAndEdit(layer);
 
       return;
     }
@@ -240,6 +264,72 @@ export class CaptureAnnotateTool implements Tool<'capture-annotate'> {
       }
     }
 
+    this.openEditor(layer, bitmap, dpr);
+    this.setFeedback('Capture ready — annotate away.', false);
+  }
+
+  /**
+   * Page-mode capture round trip (spec: full_page_capture): Pixly's UI is hidden for the whole
+   * scroll run, the page is walked and stitched by captureFullPage, and the editor opens on the
+   * tall bitmap. Deactivating the tool mid-run aborts the walk; the page is restored either way.
+   */
+  private async captureFullPageAndEdit(layer: HTMLElement): Promise<void> {
+    if (!this.context) {
+      return;
+    }
+
+    this.capturing = true;
+    this.setFeedback('Capturing the full page — scrolling through it…', false);
+
+    const host = this.context.shadowRoot.host as HTMLElement;
+    host.style.visibility = 'hidden';
+
+    let result: FullPageCaptureResult | null;
+
+    try {
+      await waitForPaintedFrame();
+      result = await captureFullPage(() => this.context === null);
+    } finally {
+      host.style.visibility = '';
+    }
+
+    this.capturing = false;
+
+    // Aborted by deactivation mid-scroll (or deactivated right after): nothing to show.
+    if (result === null || !this.context) {
+      if (result?.ok) {
+        result.bitmap.close();
+      }
+
+      return;
+    }
+
+    if (!result.ok) {
+      this.setFeedback(
+        `Capture failed (${result.error}). Open the Pixly popup and re-enable this tool to grant site access, then retry.`,
+        true,
+      );
+
+      return;
+    }
+
+    this.openEditor(layer, result.bitmap, Math.max(1, window.devicePixelRatio || 1));
+    this.setFeedback(
+      result.truncated
+        ? 'Capture ready — the page exceeds the maximum capture height, so the bottom was trimmed.'
+        : 'Capture ready — annotate away.',
+      false,
+    );
+  }
+
+  /** Opens the annotation editor on a captured bitmap; every capture mode funnels through here. */
+  private openEditor(layer: HTMLElement, bitmap: ImageBitmap, dpr: number): void {
+    if (!this.context) {
+      bitmap.close();
+
+      return;
+    }
+
     this.editor = new AnnotationEditor(
       layer,
       {
@@ -258,8 +348,6 @@ export class CaptureAnnotateTool implements Tool<'capture-annotate'> {
         },
       },
     );
-
-    this.setFeedback('Capture ready — annotate away.', false);
   }
 
   /** The editor's style picks become the persisted defaults for the next session. */

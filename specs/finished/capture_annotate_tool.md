@@ -125,6 +125,7 @@ quien la reciba entienda al instante qué mirar y dónde reproducirlo.
   después).
 - Captura de página completa (scroll & stitch); los tres modos operan sobre el viewport
   visible (el rect de un elemento más alto que el viewport se recorta a lo visible).
+  _Añadida después como el modo **Page** — ver `full_page_capture.md`._
 - Compartir directo a servicios externos (el PNG descargado/copiado es el canal).
 
 ## 5. Pruebas

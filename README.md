@@ -21,8 +21,10 @@ An extensible Chrome (Manifest V3) toolset for visual web development. Current t
 - **Snapshot & Compare** — capture the visible viewport and lay it back over the page in
   `difference` blend: identical pixels turn black, anything that changed since the capture
   glows. Captures persist per page with when/title/URL provenance.
-- **Capture & Annotate** — capture the visible viewport, a dragged area or a single element
-  (DevTools-style picker), and mark it up with arrows, lines, rectangles, ellipses, text labels
+- **Capture & Annotate** — capture the visible viewport, the full page (auto-scrolled and
+  stitched into one tall image, with fixed/sticky chrome de-duplicated), a dragged area or a
+  single element (DevTools-style picker), and mark it up with arrows, lines, rectangles,
+  ellipses, text labels
   and emoji stamps in a full-screen editor. Direct manipulation with any tool: grab an existing
   annotation to move it, resize it by its endpoint grips, restyle or delete the selection
   (Alt-drag draws over it), with real undo across all of it.
