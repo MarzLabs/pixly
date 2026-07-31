@@ -103,15 +103,6 @@ export const TOOL_CATALOG: ToolCatalogEntry[] = [
     icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20L20 4"/><circle cx="4" cy="20" r="2"/><circle cx="20" cy="4" r="2"/><path d="M9 15l1.5 1.5M13 11l1.5 1.5"/></svg>',
   },
   {
-    id: TOOL_ID.snapshotCompare,
-    name: 'Snapshot & Compare',
-    description: 'Capture the page and compare it against its current state.',
-    help: 'Capture the page BEFORE a change (CSS fix, deploy, experiment). Afterwards, the capture sits over the page in difference blend: identical pixels turn black, so anything that changed — intended or not — glows.',
-    scope: 'url',
-    icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h2l2-2h6l2 2h2a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><circle cx="12" cy="13" r="4"/></svg>',
-    needsHostPermission: true,
-  },
-  {
     id: TOOL_ID.captureAnnotate,
     name: 'Capture & Annotate',
     description: 'Capture the page, an area or an element and annotate it for sharing.',
@@ -146,5 +137,16 @@ export const TOOL_CATALOG: ToolCatalogEntry[] = [
         hint: 'By depth cycles a color palette per DOM level, making nesting visible.',
       },
     ],
+  },
+  // Kept last on purpose: sitting next to Capture & Annotate made the two capture-style tools
+  // easy to mix up in the popup grid; distance plus the trailing slot sets this one apart.
+  {
+    id: TOOL_ID.snapshotCompare,
+    name: 'Snapshot & Compare',
+    description: 'Capture the page and compare it against its current state.',
+    help: 'Capture the page BEFORE a change (CSS fix, deploy, experiment). Afterwards, the capture sits over the page in difference blend: identical pixels turn black, so anything that changed — intended or not — glows.',
+    scope: 'url',
+    icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8a2 2 0 012-2h2l2-2h6l2 2h2a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><circle cx="12" cy="13" r="4"/></svg>',
+    needsHostPermission: true,
   },
 ];
