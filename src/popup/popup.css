@@ -11,6 +11,15 @@
   --pixly-color-danger: #ef4444;
   --pixly-radius-small: 6px;
   --pixly-radius-medium: 10px;
+
+  /*
+   * Tool grid layout. To fit more (or fewer) tools per row, change --popup-grid-columns —
+   * the popup width follows automatically from the tile size, gap and padding below.
+   */
+  --popup-grid-columns: 4;
+  --popup-tile-size: 88px;
+  --popup-grid-gap: 8px;
+  --popup-grid-padding: 8px;
 }
 
 * {
@@ -18,7 +27,10 @@
 }
 
 body {
-  width: 320px;
+  width: calc(
+    var(--popup-grid-columns) * var(--popup-tile-size) + (var(--popup-grid-columns) - 1) *
+      var(--popup-grid-gap) + 2 * var(--popup-grid-padding)
+  );
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   background: var(--pixly-color-surface);
@@ -46,40 +58,128 @@ body {
   word-break: break-all;
 }
 
-.popup-tools {
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.tool-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--popup-grid-columns), 1fr);
+  gap: var(--popup-grid-gap);
+  padding: var(--popup-grid-padding);
 }
 
-.tool-card {
+.tool-tile {
+  position: relative;
+  min-height: var(--popup-tile-size);
+  border: 1px solid var(--pixly-color-border);
+  border-radius: var(--pixly-radius-medium);
+  background: var(--pixly-color-surface-raised);
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+/* The whole tile is the toggle: one click enables/disables the tool on this site. */
+.tool-tile__toggle {
   display: flex;
-  gap: 12px;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  min-height: var(--popup-tile-size);
+  padding: 10px 6px 6px;
+  border: none;
+  border-radius: var(--pixly-radius-medium);
+  background: none;
+  color: var(--pixly-color-text);
+  font: inherit;
+  cursor: pointer;
+  text-align: center;
+}
+
+.tool-tile__toggle:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.tool-tile:hover:not(:has(.tool-tile__toggle:disabled)) {
+  border-color: var(--pixly-color-text-muted);
+}
+
+.tool-tile--active {
+  border-color: var(--pixly-color-brand);
+  background: rgb(249 115 22 / 0.12);
+}
+
+.tool-tile--active:hover:not(:has(.tool-tile__toggle:disabled)) {
+  border-color: var(--pixly-color-brand-hover);
+}
+
+.tool-tile__icon {
+  color: var(--pixly-color-text-muted);
+  transition: color 0.15s ease;
+}
+
+/* Catalog icons declare 18px for the old list layout; scale them up as the tile's centerpiece. */
+.tool-tile__icon svg {
+  width: 26px;
+  height: 26px;
+}
+
+.tool-tile--active .tool-tile__icon {
+  color: var(--pixly-color-brand);
+}
+
+.tool-tile__name {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.tool-tile__scope {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--pixly-color-text-muted);
+}
+
+/* Small "?" opening the detail panel under the grid (description, help, config). */
+.tool-tile__info {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--pixly-color-text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  cursor: pointer;
+}
+
+.tool-tile__info:hover,
+.tool-tile__info[aria-expanded='true'] {
+  background: var(--pixly-color-border);
+  color: var(--pixly-color-brand);
+}
+
+/* Detail panel for the tool whose "?" is open. */
+.tool-detail {
+  margin: 0 var(--popup-grid-padding) var(--popup-grid-padding);
   padding: 12px;
   border: 1px solid var(--pixly-color-border);
   border-radius: var(--pixly-radius-medium);
   background: var(--pixly-color-surface-raised);
 }
 
-.tool-card__icon {
-  color: var(--pixly-color-brand);
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-.tool-card__text {
-  flex: 1;
-  min-width: 0;
-}
-
-.tool-card__name {
+.tool-detail__name {
   font-size: 14px;
   font-weight: 600;
 }
 
-.tool-card__scope {
+.tool-detail__scope {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -87,28 +187,13 @@ body {
   margin-left: 6px;
 }
 
-.tool-card__desc {
+.tool-detail__desc {
   font-size: 12px;
   color: var(--pixly-color-text-muted);
   margin-top: 2px;
 }
 
-/* Expandable "what is this for" note per tool. */
-.tool-card__help-toggle {
-  margin-top: 4px;
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--pixly-color-brand);
-  font-size: 11px;
-  cursor: pointer;
-}
-
-.tool-card__help-toggle:hover {
-  text-decoration: underline;
-}
-
-.tool-card__help {
+.tool-detail__help {
   margin: 6px 0 0;
   padding: 6px 8px;
   border-left: 2px solid var(--pixly-color-brand);
@@ -120,7 +205,7 @@ body {
 }
 
 /* Set-and-forget configuration fields, shown while the tool is enabled on this site. */
-.tool-card__config {
+.tool-detail__config {
   margin-top: 10px;
   padding-top: 10px;
   border-top: 1px solid var(--pixly-color-border);

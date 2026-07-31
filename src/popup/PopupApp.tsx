@@ -16,17 +16,20 @@ import { loadConfig, onConfigChanged, saveConfig } from '@shared/persistence/con
 import { sendToTab } from '@shared/messaging/send';
 
 /**
- * Pixly popup (spec §8, RF-UI-2). Lists every tool from the catalog with a per-site toggle plus a
- * global enable switch, and hosts the set-and-forget config fields declared in the catalog — live
- * controls stay in the in-page widget. Toggling never mutates the page directly: it asks the active
- * tab's content script, which updates storage and reconciles. Config edits are written straight to
- * storage; the content script picks them up via onChanged and applies them to live tools.
+ * Pixly popup (spec §8, RF-UI-2). Shows every tool from the catalog as a grid of toggle tiles —
+ * one click on a tile enables/disables the tool on this site — plus a global enable switch. The
+ * column count lives in a single CSS variable (--popup-grid-columns in popup.css). Each tile's
+ * "?" button opens a detail panel under the grid with the tool's description, help note and the
+ * set-and-forget config fields declared in the catalog — live controls stay in the in-page widget.
+ * Toggling never mutates the page directly: it asks the active tab's content script, which updates
+ * storage and reconciles. Config edits are written straight to storage; the content script picks
+ * them up via onChanged and applies them to live tools.
  */
 export function PopupApp() {
   const [config, setConfig] = useState<PixlyConfig | null>(null);
   const [tab, setTab] = useState<chrome.tabs.Tab | null>(null);
   const [tabUnreachable, setTabUnreachable] = useState(false);
-  const [openHelpId, setOpenHelpId] = useState<ToolId | null>(null);
+  const [detailToolId, setDetailToolId] = useState<ToolId | null>(null);
 
   useEffect(() => {
     void initialize();
@@ -94,6 +97,7 @@ export function PopupApp() {
 
   const activeFlags = useMemo(() => computeActiveFlags(config, href), [config, href]);
   const globalEnabled = config?.globalEnabled ?? true;
+  const detailEntry = TOOL_CATALOG.find((entry) => entry.id === detailToolId) ?? null;
 
   return (
     <div>
@@ -114,57 +118,68 @@ export function PopupApp() {
         </p>
       )}
 
-      <div class="popup-tools">
-        {TOOL_CATALOG.map((entry) => (
-          <article key={entry.id} class="tool-card">
-            <span class="tool-card__icon" dangerouslySetInnerHTML={{ __html: entry.icon }} />
-            <div class="tool-card__text">
-              <div class="tool-card__name">
-                {entry.name}
-                <span class="tool-card__scope">{entry.scope}</span>
-              </div>
-              <div class="tool-card__desc">{entry.description}</div>
+      <div class="tool-grid">
+        {TOOL_CATALOG.map((entry) => {
+          const active = activeFlags[entry.id] ?? false;
 
-              {entry.help && (
-                <button
-                  class="tool-card__help-toggle"
-                  onClick={() => setOpenHelpId(openHelpId === entry.id ? null : entry.id)}
-                >
-                  {openHelpId === entry.id ? 'Hide help' : "What's this for?"}
-                </button>
-              )}
-
-              {entry.help && openHelpId === entry.id && <p class="tool-card__help">{entry.help}</p>}
-
-              {config && activeFlags[entry.id] && entry.configFields && (
-                <div class="tool-card__config">
-                  {entry.configFields.map((field) => (
-                    <label key={field.key} class="config-field">
-                      <span class="config-field__label">{field.label}</span>
-                      <ConfigFieldInput
-                        field={field}
-                        value={getToolConfigValue(
-                          config,
-                          deriveScopeKey(href, entry.scope),
-                          entry.id,
-                          field.key,
-                        )}
-                        onCommit={(rawValue) => void changeConfigValue(entry, field, rawValue)}
-                      />
-                      {field.hint && <span class="config-field__hint">{field.hint}</span>}
-                    </label>
-                  ))}
-                </div>
-              )}
+          return (
+            <div key={entry.id} class={`tool-tile${active ? ' tool-tile--active' : ''}`}>
+              <button
+                class="tool-tile__toggle"
+                disabled={!reachable || !globalEnabled}
+                aria-pressed={active}
+                title={entry.description}
+                onClick={() => void toggleTool(entry, !active)}
+              >
+                <span class="tool-tile__icon" dangerouslySetInnerHTML={{ __html: entry.icon }} />
+                <span class="tool-tile__name">{entry.name}</span>
+                <span class="tool-tile__scope">{entry.scope}</span>
+              </button>
+              <button
+                class="tool-tile__info"
+                aria-label={`About ${entry.name}`}
+                aria-expanded={detailToolId === entry.id}
+                onClick={() => setDetailToolId(detailToolId === entry.id ? null : entry.id)}
+              >
+                ?
+              </button>
             </div>
-            <Switch
-              checked={activeFlags[entry.id] ?? false}
-              disabled={!reachable || !globalEnabled}
-              onChange={(value) => void toggleTool(entry, value)}
-            />
-          </article>
-        ))}
+          );
+        })}
       </div>
+
+      {detailEntry && (
+        <article class="tool-detail">
+          <div class="tool-detail__name">
+            {detailEntry.name}
+            <span class="tool-detail__scope">{detailEntry.scope}</span>
+          </div>
+          <div class="tool-detail__desc">{detailEntry.description}</div>
+
+          {detailEntry.help && <p class="tool-detail__help">{detailEntry.help}</p>}
+
+          {config && activeFlags[detailEntry.id] && detailEntry.configFields && (
+            <div class="tool-detail__config">
+              {detailEntry.configFields.map((field) => (
+                <label key={field.key} class="config-field">
+                  <span class="config-field__label">{field.label}</span>
+                  <ConfigFieldInput
+                    field={field}
+                    value={getToolConfigValue(
+                      config,
+                      deriveScopeKey(href, detailEntry.scope),
+                      detailEntry.id,
+                      field.key,
+                    )}
+                    onCommit={(rawValue) => void changeConfigValue(detailEntry, field, rawValue)}
+                  />
+                  {field.hint && <span class="config-field__hint">{field.hint}</span>}
+                </label>
+              ))}
+            </div>
+          )}
+        </article>
+      )}
 
       <div class="popup-global">
         <span class="popup-global__label">Pixly enabled</span>
