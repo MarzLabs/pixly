@@ -99,6 +99,18 @@ export class AnnotationHistory {
     this.gestureChanged = false;
   }
 
+  /**
+   * Replaces the whole list after a crop, with no undo step and the past cleared: a crop
+   * re-anchors annotations to a new, smaller canvas, so older snapshots (sized for the pre-crop
+   * frame) can no longer be replayed correctly.
+   */
+  resetAfterCrop(annotations: Annotation[]): void {
+    this.current = annotations;
+    this.past = [];
+    this.pendingGesture = null;
+    this.gestureChanged = false;
+  }
+
   /** Restores the previous step. Returns false when there is nothing to undo. */
   undo(): boolean {
     const previous = this.past.pop();

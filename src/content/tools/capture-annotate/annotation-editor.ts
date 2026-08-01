@@ -26,7 +26,20 @@ import {
   STROKE_WIDTH_PRESETS_PX,
 } from './capture-annotate-state';
 import { composeAnnotatedCapture } from './capture-export';
+import { regionToDeviceCrop } from './capture-region';
 import { textFontSizePx, textLineHeightPx } from './text-metrics';
+
+/** Whether any part of the annotation's bounding box still falls inside the cropped frame. */
+function annotationVisibleWithin(annotation: Annotation, width: number, height: number): boolean {
+  const rect = normalizedRect(annotation.start, annotation.end);
+
+  return (
+    rect.left < width &&
+    rect.left + rect.width > 0 &&
+    rect.top < height &&
+    rect.top + rect.height > 0
+  );
+}
 
 /** Everything the editor needs about the capture it is annotating. */
 export interface CaptureSession {
@@ -82,6 +95,12 @@ export class AnnotationEditor {
   /** Move mode: clicks grab existing annotations instead of drawing new ones. */
   private moveMode = false;
   private moveButton: HTMLButtonElement | null = null;
+  /** Crop mode: dragging defines a rect that Apply crop shrinks the whole capture to. */
+  private cropMode = false;
+  private cropButton: HTMLButtonElement | null = null;
+  /** In-flight crop drag: start point plus the latest preview end point. */
+  private cropDraft: { start: AnnotationPoint; end: AnnotationPoint } | null = null;
+  private readonly cropControls: HTMLDivElement;
   /**
    * Drag in progress in move mode: the annotation's index, the pointer's last position, and
    * what was grabbed — 'whole' translates the shape, an endpoint grip resizes/reshapes it.
@@ -97,9 +116,9 @@ export class AnnotationEditor {
   private selectedIndex: number | null = null;
   private exporting = false;
 
-  /** CSS-pixel size of the screenshot, the coordinate space annotations live in. */
-  private readonly cssWidth: number;
-  private readonly cssHeight: number;
+  /** CSS-pixel size of the screenshot, the coordinate space annotations live in. Shrinks on crop. */
+  private cssWidth: number;
+  private cssHeight: number;
 
   private readonly onKeyDown = (event: KeyboardEvent): void => this.handleKeyDown(event);
 
@@ -140,6 +159,25 @@ export class AnnotationEditor {
     this.canvasWrap = document.createElement('div');
     this.canvasWrap.className = 'pixly-capture-editor__canvas-wrap';
     this.canvasWrap.appendChild(this.canvas);
+
+    this.cropControls = document.createElement('div');
+    this.cropControls.className =
+      'pixly-capture-editor__crop-controls pixly-capture-editor__crop-controls--hidden';
+
+    const applyCropButton = document.createElement('button');
+    applyCropButton.type = 'button';
+    applyCropButton.className = 'pixly-btn pixly-btn--primary';
+    applyCropButton.textContent = 'Apply crop';
+    applyCropButton.addEventListener('click', () => void this.applyCrop());
+
+    const cancelCropButton = document.createElement('button');
+    cancelCropButton.type = 'button';
+    cancelCropButton.className = 'pixly-btn';
+    cancelCropButton.textContent = 'Cancel';
+    cancelCropButton.addEventListener('click', () => this.cancelCropDraft());
+
+    this.cropControls.append(applyCropButton, cancelCropButton);
+    this.canvasWrap.appendChild(this.cropControls);
 
     this.glyphBar = document.createElement('div');
     this.glyphBar.className = 'pixly-capture-editor__glyphbar';
@@ -208,6 +246,14 @@ export class AnnotationEditor {
       () => this.setMoveMode(true),
     );
     toolGroup.appendChild(this.moveButton);
+
+    this.cropButton = this.iconButton(
+      'pixly-tab',
+      '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v14a2 2 0 002 2h14"/><path d="M2 6h14a2 2 0 012 2v14"/></svg>',
+      'Crop the capture',
+      () => this.setCropMode(true),
+    );
+    toolGroup.appendChild(this.cropButton);
 
     for (const tool of ANNOTATION_TOOLS) {
       const button = this.iconButton('pixly-tab', tool.icon, tool.name, () =>
@@ -371,9 +417,13 @@ export class AnnotationEditor {
   // ---- Selection --------------------------------------------------------
 
   private updateSelection(partial: Partial<EditorStyleSelection>): void {
-    // Picking a paint tool is an implicit exit from move mode (grips disappear with it).
-    if (partial.toolId !== undefined && this.moveMode) {
+    // Picking a paint tool is an implicit exit from move/crop mode (their affordances disappear
+    // with it).
+    if (partial.toolId !== undefined && (this.moveMode || this.cropMode)) {
       this.moveMode = false;
+      this.cropMode = false;
+      this.cropDraft = null;
+      this.updateCropControls();
       this.hoveredIndex = null;
       this.repaint();
     }
@@ -413,6 +463,13 @@ export class AnnotationEditor {
     this.moveMode = enabled;
     this.commitTextDraft();
     this.hoveredIndex = null;
+
+    if (enabled && this.cropMode) {
+      this.cropMode = false;
+      this.cropDraft = null;
+      this.updateCropControls();
+    }
+
     this.syncSelectionButtons();
     this.repaint();
 
@@ -421,13 +478,37 @@ export class AnnotationEditor {
     }
   }
 
+  private setCropMode(enabled: boolean): void {
+    this.cropMode = enabled;
+    this.commitTextDraft();
+    this.cropDraft = null;
+    this.hoveredIndex = null;
+    this.selectedIndex = null;
+
+    if (enabled) {
+      this.moveMode = false;
+    }
+
+    this.updateCropControls();
+    this.syncSelectionButtons();
+    this.repaint();
+
+    if (enabled) {
+      this.setFeedback(
+        'Crop: drag the area to keep, then Apply crop (Enter) or Cancel (Esc).',
+        false,
+      );
+    }
+  }
+
   private syncSelectionButtons(): void {
     this.moveButton?.classList.toggle('pixly-tab--active', this.moveMode);
+    this.cropButton?.classList.toggle('pixly-tab--active', this.cropMode);
 
     for (const [toolId, button] of this.toolButtons) {
       button.classList.toggle(
         'pixly-tab--active',
-        !this.moveMode && toolId === this.selection.toolId,
+        !this.moveMode && !this.cropMode && toolId === this.selection.toolId,
       );
     }
 
@@ -450,6 +531,10 @@ export class AnnotationEditor {
   private baseCursor(): string {
     if (this.moveMode) {
       return 'default';
+    }
+
+    if (this.cropMode) {
+      return 'crosshair';
     }
 
     const interaction = this.activeInteraction();
@@ -522,6 +607,15 @@ export class AnnotationEditor {
 
       const point = this.toCanvasPoint(event);
 
+      if (this.cropMode) {
+        this.canvas.setPointerCapture(event.pointerId);
+        this.cropDraft = { start: point, end: point };
+        this.updateCropControls();
+        this.repaint();
+
+        return;
+      }
+
       // Direct manipulation with ANY tool: a press on an existing annotation grabs and
       // selects it instead of drawing. Alt forces the tool action (draw over an existing
       // annotation); move mode ignores Alt — grabbing is all it does.
@@ -572,6 +666,16 @@ export class AnnotationEditor {
     });
 
     this.canvas.addEventListener('pointermove', (event) => {
+      if (this.cropMode) {
+        if (this.cropDraft) {
+          this.cropDraft.end = this.toCanvasPoint(event);
+          this.updateCropControls();
+          this.repaint();
+        }
+
+        return;
+      }
+
       if (this.moving) {
         const point = this.toCanvasPoint(event);
         const target = this.history.at(this.moving.index);
@@ -620,6 +724,19 @@ export class AnnotationEditor {
     });
 
     const finish = (event: PointerEvent, commit: boolean): void => {
+      if (this.cropMode) {
+        if (!commit) {
+          this.cropDraft = null;
+        } else if (this.cropDraft) {
+          this.cropDraft.end = this.toCanvasPoint(event);
+        }
+
+        this.updateCropControls();
+        this.repaint();
+
+        return;
+      }
+
       if (this.moving) {
         // Zero-delta grabs leave no history step; real drags close as exactly one.
         this.history.endGesture();
@@ -860,6 +977,138 @@ export class AnnotationEditor {
     }
 
     this.paintSelectionAffordances(ctx);
+    this.paintCropOverlay(ctx);
+  }
+
+  /** Dims everything outside the pending crop rect and outlines the area that will be kept. */
+  private paintCropOverlay(ctx: CanvasRenderingContext2D): void {
+    if (!this.cropMode || !this.cropDraft) {
+      return;
+    }
+
+    const rect = normalizedRect(this.cropDraft.start, this.cropDraft.end);
+
+    ctx.save();
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.fillRect(0, 0, this.cssWidth, rect.top);
+    ctx.fillRect(
+      0,
+      rect.top + rect.height,
+      this.cssWidth,
+      this.cssHeight - (rect.top + rect.height),
+    );
+    ctx.fillRect(0, rect.top, rect.left, rect.height);
+    ctx.fillRect(
+      rect.left + rect.width,
+      rect.top,
+      this.cssWidth - (rect.left + rect.width),
+      rect.height,
+    );
+
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 4]);
+    ctx.strokeRect(rect.left, rect.top, rect.width, rect.height);
+    ctx.restore();
+  }
+
+  /** Whether the in-flight crop drag is big enough to apply (vs. an accidental click). */
+  private hasValidCropDraft(): boolean {
+    return (
+      this.cropDraft !== null &&
+      dragDistance(this.cropDraft.start, this.cropDraft.end) >= MIN_DRAG_DISTANCE_PX
+    );
+  }
+
+  /** Shows/hides and repositions the Apply/Cancel buttons under the pending crop rect. */
+  private updateCropControls(): void {
+    if (!this.hasValidCropDraft() || !this.cropDraft) {
+      this.cropControls.classList.add('pixly-capture-editor__crop-controls--hidden');
+
+      return;
+    }
+
+    const rect = normalizedRect(this.cropDraft.start, this.cropDraft.end);
+    const scale = this.displayScale();
+
+    this.cropControls.style.left = `${rect.left * scale}px`;
+    this.cropControls.style.top = `${Math.min(this.cssHeight, rect.top + rect.height) * scale + 8}px`;
+    this.cropControls.classList.remove('pixly-capture-editor__crop-controls--hidden');
+  }
+
+  /** Discards the pending crop rect without leaving crop mode. */
+  private cancelCropDraft(): void {
+    this.cropDraft = null;
+    this.updateCropControls();
+    this.repaint();
+  }
+
+  /**
+   * Shrinks the capture to the pending crop rect: replaces the session bitmap with a cropped
+   * one, resizes the canvas, and re-anchors surviving annotations to the new origin. Not part of
+   * the undo stack — the annotation history is reset instead (see AnnotationHistory.resetAfterCrop).
+   */
+  private async applyCrop(): Promise<void> {
+    if (!this.hasValidCropDraft() || !this.cropDraft) {
+      return;
+    }
+
+    const rect = normalizedRect(this.cropDraft.start, this.cropDraft.end);
+    const crop = regionToDeviceCrop(
+      rect,
+      this.session.dpr,
+      this.session.bitmap.width,
+      this.session.bitmap.height,
+    );
+
+    this.cropDraft = null;
+    this.cropMode = false;
+    this.updateCropControls();
+
+    if (!crop) {
+      this.syncSelectionButtons();
+      this.repaint();
+
+      return;
+    }
+
+    let cropped: ImageBitmap;
+
+    try {
+      cropped = await createImageBitmap(this.session.bitmap, crop.sx, crop.sy, crop.sw, crop.sh);
+    } catch (error) {
+      this.setFeedback(error instanceof Error ? error.message : 'Crop failed.', true);
+      this.syncSelectionButtons();
+      this.repaint();
+
+      return;
+    }
+
+    const oldBitmap = this.session.bitmap;
+    this.session.bitmap = cropped;
+    oldBitmap.close();
+
+    const offsetLeft = crop.sx / this.session.dpr;
+    const offsetTop = crop.sy / this.session.dpr;
+
+    this.cssWidth = Math.max(1, Math.round(cropped.width / this.session.dpr));
+    this.cssHeight = Math.max(1, Math.round(cropped.height / this.session.dpr));
+    this.canvas.width = cropped.width;
+    this.canvas.height = cropped.height;
+    this.canvas.style.width = `${this.cssWidth}px`;
+
+    const shifted = this.history
+      .list()
+      .map((annotation) => translateAnnotation(annotation, -offsetLeft, -offsetTop))
+      .filter((annotation) => annotationVisibleWithin(annotation, this.cssWidth, this.cssHeight));
+
+    this.history.resetAfterCrop(shifted);
+    this.selectedIndex = null;
+    this.hoveredIndex = null;
+
+    this.syncSelectionButtons();
+    this.repaint();
+    this.setFeedback('Cropped to the selected area.', false);
   }
 
   /**
@@ -948,9 +1197,15 @@ export class AnnotationEditor {
       event.preventDefault();
       event.stopPropagation();
 
-      // Esc backs out one layer at a time: text entry, then selection, then the editor.
+      // Esc backs out one layer at a time: text entry, crop draft, then selection, then the editor.
       if (this.textDraft) {
         this.cancelTextDraft();
+
+        return;
+      }
+
+      if (this.cropDraft) {
+        this.cancelCropDraft();
 
         return;
       }
@@ -982,6 +1237,14 @@ export class AnnotationEditor {
       event.preventDefault();
       event.stopPropagation();
       this.undo();
+
+      return;
+    }
+
+    if (event.key === 'Enter' && this.hasValidCropDraft() && !this.textDraft) {
+      event.preventDefault();
+      event.stopPropagation();
+      void this.applyCrop();
 
       return;
     }

@@ -159,6 +159,36 @@ describe('AnnotationHistory', () => {
     expect(history.list()).toHaveLength(0);
   });
 
+  it('replaces the list after a crop with no undo step, dropping past history', () => {
+    const history = new AnnotationHistory();
+    history.push(buildAnnotation(0, 'a'));
+    history.push(buildAnnotation(100, 'b'));
+
+    history.resetAfterCrop([buildAnnotation(5, 'b-shifted')]);
+    expect(history.list()).toHaveLength(1);
+    expect(history.at(0)?.text).toBe('b-shifted');
+
+    // The pre-crop snapshots no longer apply to the (now smaller) canvas, so they're gone.
+    expect(history.canUndo).toBe(false);
+    expect(history.undo()).toBe(false);
+    expect(history.list()).toHaveLength(1);
+  });
+
+  it('leaves an open gesture behind when a crop lands mid-drag', () => {
+    const history = new AnnotationHistory();
+    history.push(buildAnnotation(0));
+    history.beginGesture();
+    history.updateDuringGesture(0, buildAnnotation(20));
+
+    history.resetAfterCrop([buildAnnotation(5)]);
+
+    // A stray endGesture() after the reset must not resurrect the discarded pre-crop state.
+    history.endGesture();
+    expect(history.list()).toHaveLength(1);
+    expect(history.at(0)?.start.x).toBe(5);
+    expect(history.canUndo).toBe(false);
+  });
+
   it('caps the history, dropping the oldest steps first', () => {
     const history = new AnnotationHistory();
 

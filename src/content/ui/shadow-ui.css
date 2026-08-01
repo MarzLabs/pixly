@@ -699,6 +699,18 @@
   outline: none;
 }
 
+/* Apply/Cancel pair floating under the pending crop rect (positioned inline, in CSS px). */
+.pixly-capture-editor__crop-controls {
+  position: absolute;
+  display: flex;
+  gap: var(--pixly-spacing-xs);
+  z-index: 1;
+}
+
+.pixly-capture-editor__crop-controls--hidden {
+  display: none;
+}
+
 /* Scrollable stage: captures larger than the window scale down (canvas max-width) or scroll. */
 .pixly-capture-editor__stage {
   flex: 1;
