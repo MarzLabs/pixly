@@ -14,6 +14,10 @@ import {
 } from '@shared/persistence/config-document';
 import { loadConfig, onConfigChanged, saveConfig } from '@shared/persistence/config-store';
 import { sendToTab } from '@shared/messaging/send';
+import type { LicenseReply } from '@shared/messaging/messages';
+import { computePlan, isProTool, type LicenseDocument } from '@shared/licensing/license-plan';
+import { loadLicenseDocument, onLicenseChanged } from '@shared/licensing/license-store';
+import { GUMROAD_PRODUCT_URL } from '@shared/licensing/gumroad';
 
 /**
  * Pixly popup (spec §8, RF-UI-2). Shows every tool from the catalog as a grid of toggle tiles —
@@ -33,19 +37,25 @@ export function PopupApp() {
   const [tabUnreachable, setTabUnreachable] = useState(false);
   const [detailToolId, setDetailToolId] = useState<ToolId | null>(null);
   const [hoveredToolId, setHoveredToolId] = useState<ToolId | null>(null);
+  const [license, setLicense] = useState<LicenseDocument | null>(null);
 
   useEffect(() => {
     void initialize();
 
-    const unsubscribe = onConfigChanged(setConfig);
+    const unsubscribeConfig = onConfigChanged(setConfig);
+    const unsubscribeLicense = onLicenseChanged(setLicense);
 
-    return unsubscribe;
+    return () => {
+      unsubscribeConfig();
+      unsubscribeLicense();
+    };
   }, []);
 
   async function initialize(): Promise<void> {
     const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
     setTab(activeTab ?? null);
     setConfig(await loadConfig());
+    setLicense(await loadLicenseDocument());
   }
 
   const href = tab?.url ?? '';
@@ -102,14 +112,23 @@ export function PopupApp() {
   const globalEnabled = config?.globalEnabled ?? true;
   const detailEntry = TOOL_CATALOG.find((entry) => entry.id === detailToolId) ?? null;
   const hoveredEntry = TOOL_CATALOG.find((entry) => entry.id === hoveredToolId) ?? null;
+  // Until the license document loads (one storage read), render without locks to avoid a flash.
+  const planInfo = useMemo(
+    () => (license ? computePlan(license, Date.now()) : null),
+    [license],
+  );
+  const freePlan = planInfo?.plan === 'free';
 
   return (
     <div>
       <header class="popup-header">
         <span class="popup-title">Pixly</span>
+        {planInfo?.plan === 'pro' && <ProBadge licenseKey={license?.licenseKey ?? ''} />}
       </header>
 
       {href && <div class="popup-subtitle">{href}</div>}
+
+      {planInfo && planInfo.plan !== 'pro' && <LicenseBanner planInfo={planInfo} />}
 
       {!reachable && (
         <p class="popup-note">Pixly can't run on this page (browser/internal page).</p>
@@ -124,7 +143,10 @@ export function PopupApp() {
 
       <div class="tool-grid">
         {TOOL_CATALOG.map((entry) => {
-          const active = activeFlags[entry.id] ?? false;
+          // Locked tiles show inactive even if the stored config still lists the tool as active:
+          // the content script filters Pro tools out on the free plan, so inactive is the truth.
+          const locked = freePlan && isProTool(entry.id);
+          const active = !locked && (activeFlags[entry.id] ?? false);
 
           return (
             <div
@@ -137,7 +159,7 @@ export function PopupApp() {
             >
               <button
                 class="tool-tile__toggle"
-                disabled={!reachable || !globalEnabled}
+                disabled={!reachable || !globalEnabled || locked}
                 aria-pressed={active}
                 onClick={() => void toggleTool(entry, !active)}
               >
@@ -145,6 +167,7 @@ export function PopupApp() {
                 <span class="tool-tile__name">{entry.name}</span>
                 <span class="tool-tile__scope">{entry.scope}</span>
               </button>
+              {locked && <span class="tool-tile__pro">PRO</span>}
               <button
                 class="tool-tile__info"
                 aria-label={`About ${entry.name}`}
@@ -205,6 +228,9 @@ export function PopupApp() {
         {hoveredEntry ? (
           <>
             <span class="popup-note__tool">{hoveredEntry.name}.</span>{' '}
+            {freePlan && isProTool(hoveredEntry.id) && (
+              <span class="popup-note__tool">Pro tool — unlock it with Pixly Pro. </span>
+            )}
             {hoveredEntry.help ?? hoveredEntry.description}
           </>
         ) : (
@@ -213,6 +239,110 @@ export function PopupApp() {
         )}
       </p>
     </div>
+  );
+}
+
+interface LicenseBannerProps {
+  planInfo: { plan: 'trial' | 'free' | 'pro'; trialDaysLeft: number };
+}
+
+/**
+ * Slim, non-blocking plan banner (trial countdown or free-plan notice) with an upgrade link and
+ * an expandable license-key form. Activation is delegated to the service worker so closing the
+ * popup mid-verification cannot lose the result; success arrives back via onLicenseChanged.
+ */
+function LicenseBanner({ planInfo }: LicenseBannerProps) {
+  const [formOpen, setFormOpen] = useState(false);
+  const [keyDraft, setKeyDraft] = useState('');
+  const [activating, setActivating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function activate(event: Event): Promise<void> {
+    event.preventDefault();
+
+    if (activating) {
+      return;
+    }
+
+    setActivating(true);
+    setError(null);
+
+    const reply = (await chrome.runtime
+      .sendMessage({ type: 'pixly/activate-license', licenseKey: keyDraft })
+      .catch(() => undefined)) as LicenseReply | undefined;
+
+    setActivating(false);
+
+    if (!reply?.ok) {
+      setError(reply && !reply.ok ? reply.error : 'Activation failed. Try again.');
+    }
+    // On success the license storage change re-renders the popup into the Pro state.
+  }
+
+  return (
+    <>
+      <div class="license-banner">
+        <span class="license-banner__text">
+          {planInfo.plan === 'trial'
+            ? `Pro trial — ${planInfo.trialDaysLeft} day${planInfo.trialDaysLeft === 1 ? '' : 's'} left`
+            : 'Free plan — Pro tools are locked'}
+        </span>
+        <a class="license-banner__cta" href={GUMROAD_PRODUCT_URL} target="_blank" rel="noreferrer">
+          Get Pro
+        </a>
+        <button
+          class="license-banner__key"
+          aria-expanded={formOpen}
+          onClick={() => setFormOpen(!formOpen)}
+        >
+          License key
+        </button>
+      </div>
+
+      {formOpen && (
+        <form class="license-form" onSubmit={(event) => void activate(event)}>
+          <input
+            type="text"
+            value={keyDraft}
+            placeholder="Paste your Gumroad license key"
+            spellcheck={false}
+            onInput={(event) => setKeyDraft((event.target as HTMLInputElement).value)}
+          />
+          <button type="submit" disabled={activating || keyDraft.trim() === ''}>
+            {activating ? 'Checking…' : 'Activate'}
+          </button>
+          {error && <span class="license-form__error">{error}</span>}
+        </form>
+      )}
+    </>
+  );
+}
+
+interface ProBadgeProps {
+  licenseKey: string;
+}
+
+/** Header "PRO" chip; clicking it reveals the masked key and a remove-license escape hatch. */
+function ProBadge({ licenseKey }: ProBadgeProps) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <span class="pro-badge">
+      {open && (
+        <span class="pro-badge__detail">
+          …{licenseKey.slice(-8)}
+          <button
+            class="pro-badge__remove"
+            onClick={() => void chrome.runtime.sendMessage({ type: 'pixly/remove-license' })}
+          >
+            Remove
+          </button>
+        </span>
+      )}
+      <button class="pro-badge__chip" aria-expanded={open} onClick={() => setOpen(!open)}>
+        PRO
+      </button>
+    </span>
   );
 }
 

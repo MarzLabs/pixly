@@ -40,7 +40,10 @@ export default defineManifest({
       all_frames: false,
     },
   ],
-  permissions: ['activeTab', 'storage', 'scripting'],
+  // alarms drives the periodic Gumroad license re-check in the service worker.
+  permissions: ['activeTab', 'storage', 'scripting', 'alarms'],
+  // The only fixed host grant: license verification against Gumroad's API from the worker.
+  host_permissions: ['https://api.gumroad.com/*'],
   optional_host_permissions: ['*://*/*'],
   // High-frequency actions get keyboard shortcuts so the on-page widget can stay minimized.
   // Users can rebind them at chrome://extensions/shortcuts.

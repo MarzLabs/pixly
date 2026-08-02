@@ -12,6 +12,13 @@ import {
   updateToolState,
 } from '@shared/persistence/config-document';
 import { loadConfig, onConfigChanged, saveConfig } from '@shared/persistence/config-store';
+import {
+  computePlan,
+  createEmptyLicenseDocument,
+  isProTool,
+  type LicenseDocument,
+} from '@shared/licensing/license-plan';
+import { loadLicenseDocument, onLicenseChanged } from '@shared/licensing/license-store';
 import type {
   ContentInboundMessage,
   ContentToPopupReply,
@@ -37,6 +44,7 @@ export class Orchestrator {
   private readonly registry: ToolRegistry;
   private toolbar: ToolbarMount | null = null;
   private config: PixlyConfig = { globalEnabled: true, scopes: {} };
+  private license: LicenseDocument = createEmptyLicenseDocument();
   /** Tools currently activated on this page, by id. */
   private readonly liveTools = new Map<ToolId, Tool>();
   private currentHref = location.href;
@@ -53,9 +61,16 @@ export class Orchestrator {
 
   async start(): Promise<void> {
     this.config = await loadConfig();
+    this.license = await loadLicenseDocument();
 
     onConfigChanged((config) => {
       this.config = config;
+      void this.reconcile();
+    });
+
+    // Plan changes (trial seeded, license activated/revoked) re-gate tools without a reload.
+    onLicenseChanged((license) => {
+      this.license = license;
       void this.reconcile();
     });
 
@@ -163,11 +178,20 @@ export class Orchestrator {
     this.syncToolbar();
   }
 
-  /** Active tool ids that apply to the current page across both scope kinds. */
+  /**
+   * Active tool ids that apply to the current page across both scope kinds. On the free plan,
+   * Pro tools are filtered out rather than deactivated in the config: their stored activation
+   * (and state) survives, so buying Pro lights them back up without re-toggling anything.
+   */
   private collectActiveToolIdsForPage(): ToolId[] {
     const ids = new Set<ToolId>();
+    const { plan } = computePlan(this.license, Date.now());
 
     for (const tool of this.registry.list()) {
+      if (plan === 'free' && isProTool(tool.id)) {
+        continue;
+      }
+
       const scopeKey = deriveScopeKey(this.currentHref, tool.scope);
 
       if (getActiveToolIds(this.config, scopeKey).includes(tool.id)) {
@@ -219,6 +243,11 @@ export class Orchestrator {
     const tool = this.registry.get(toolId);
 
     if (!tool) {
+      return;
+    }
+
+    // The popup disables locked tiles; this guards against stale popups and hand-crafted messages.
+    if (enabled && isProTool(toolId) && computePlan(this.license, Date.now()).plan === 'free') {
       return;
     }
 

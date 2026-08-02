@@ -1,7 +1,17 @@
 import { createEmptyConfig } from '@shared/persistence/config-document';
 import { isCommandId, STORAGE_ROOT_KEY } from '@shared/constants';
-import type { CaptureReply, ContentToBackgroundMessage } from '@shared/messaging/messages';
+import type {
+  BackgroundInboundMessage,
+  CaptureReply,
+  LicenseReply,
+} from '@shared/messaging/messages';
 import { sendToTab } from '@shared/messaging/send';
+import { verifyLicenseWithGumroad } from '@shared/licensing/gumroad';
+import {
+  ensureTrialSeeded,
+  loadLicenseDocument,
+  saveLicenseDocument,
+} from '@shared/licensing/license-store';
 
 /**
  * MV3 service worker (spec §9). Coordinates extension-level concerns: seeds an empty config on
@@ -9,7 +19,14 @@ import { sendToTab } from '@shared/messaging/send';
  * shortcuts (chrome.commands) to the tab's content script, and captures the visible tab for the
  * Snapshot tool (chrome.tabs.captureVisibleTab only exists in extension contexts). Per-page
  * effects are handled entirely by the content script.
+ *
+ * It also owns licensing (spec: Gumroad): seeds the 15-day trial start, activates license keys
+ * against Gumroad on behalf of the popup, and re-checks the stored key on a daily alarm so
+ * refunds/chargebacks eventually revoke Pro. Plan gating itself happens in the content script
+ * and popup from the shared license document.
  */
+
+const LICENSE_RECHECK_ALARM = 'pixly-license-recheck';
 
 chrome.runtime.onInstalled.addListener(async () => {
   const existing = await chrome.storage.local.get(STORAGE_ROOT_KEY);
@@ -17,6 +34,16 @@ chrome.runtime.onInstalled.addListener(async () => {
   if (!existing[STORAGE_ROOT_KEY]) {
     await chrome.storage.local.set({ [STORAGE_ROOT_KEY]: createEmptyConfig() });
   }
+
+  await ensureTrialSeeded(new Date().toISOString());
+  await scheduleLicenseRecheck();
+});
+
+// Alarms survive browser restarts, but re-asserting them (and the trial seed) on startup keeps
+// licensing healthy even if an install-time write was interrupted.
+chrome.runtime.onStartup.addListener(() => {
+  void ensureTrialSeeded(new Date().toISOString());
+  void scheduleLicenseRecheck();
 });
 
 // Commands carry the tab they fired on; fall back to the active tab (e.g. commands with no tab
@@ -41,22 +68,35 @@ async function findActiveTabId(): Promise<number | undefined> {
   return activeTab?.id;
 }
 
-// Capture requests from content scripts. Fails (with a typed error the tool surfaces) when
-// activeTab is not currently granted for the tab — e.g. after a reload without reopening the popup.
+// Capture requests from content scripts and license actions from the popup. Capture fails (with
+// a typed error the tool surfaces) when activeTab is not currently granted for the tab — e.g.
+// after a reload without reopening the popup.
 chrome.runtime.onMessage.addListener(
-  (message: ContentToBackgroundMessage, sender, sendResponse: (reply: CaptureReply) => void) => {
-    if (message?.type !== 'pixly/capture-visible-tab') {
-      return;
+  (
+    message: BackgroundInboundMessage,
+    sender,
+    sendResponse: (reply: CaptureReply | LicenseReply) => void,
+  ) => {
+    switch (message?.type) {
+      case 'pixly/capture-visible-tab':
+        void captureVisibleTab(sender.tab?.windowId)
+          .then((dataUrl) => sendResponse({ ok: true, dataUrl }))
+          .catch((error: unknown) =>
+            sendResponse({
+              ok: false,
+              error: error instanceof Error ? error.message : 'Capture failed',
+            }),
+          );
+        break;
+      case 'pixly/activate-license':
+        void activateLicense(message.licenseKey).then(sendResponse);
+        break;
+      case 'pixly/remove-license':
+        void removeLicense().then(sendResponse);
+        break;
+      default:
+        return;
     }
-
-    void captureVisibleTab(sender.tab?.windowId)
-      .then((dataUrl) => sendResponse({ ok: true, dataUrl }))
-      .catch((error: unknown) =>
-        sendResponse({
-          ok: false,
-          error: error instanceof Error ? error.message : 'Capture failed',
-        }),
-      );
 
     // Returning true keeps the message channel open for the async reply.
     return true;
@@ -69,4 +109,84 @@ function captureVisibleTab(windowId: number | undefined): Promise<string> {
   return windowId === undefined
     ? chrome.tabs.captureVisibleTab(options)
     : chrome.tabs.captureVisibleTab(windowId, options);
+}
+
+/**
+ * Verifies a key the user pasted in the popup and stores it only when Gumroad confirms it.
+ * This is the one call that increments the Gumroad "uses" counter (it means "activations").
+ */
+async function activateLicense(licenseKey: string): Promise<LicenseReply> {
+  const key = licenseKey.trim();
+
+  if (!key) {
+    return { ok: false, error: 'Enter a license key.' };
+  }
+
+  const result = await verifyLicenseWithGumroad(key, { incrementUsesCount: true });
+
+  if (!result.ok) {
+    return { ok: false, error: result.error };
+  }
+
+  if (!result.data.valid) {
+    return { ok: false, error: result.data.reason };
+  }
+
+  const doc = await loadLicenseDocument();
+  await saveLicenseDocument({
+    ...doc,
+    licenseKey: key,
+    verification: { valid: true, checkedAtIso: new Date().toISOString() },
+  });
+
+  return { ok: true };
+}
+
+async function removeLicense(): Promise<LicenseReply> {
+  const doc = await loadLicenseDocument();
+  await saveLicenseDocument({ ...doc, licenseKey: null, verification: null });
+
+  return { ok: true };
+}
+
+async function scheduleLicenseRecheck(): Promise<void> {
+  const existing = await chrome.alarms.get(LICENSE_RECHECK_ALARM);
+
+  if (!existing) {
+    await chrome.alarms.create(LICENSE_RECHECK_ALARM, { periodInMinutes: 60 * 24 });
+  }
+}
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === LICENSE_RECHECK_ALARM) {
+    void recheckLicense();
+  }
+});
+
+/**
+ * Re-validates the stored key so refunds and chargebacks eventually revoke Pro. Indeterminate
+ * results (offline, Gumroad down) change nothing — a paying user is never downgraded by a
+ * network hiccup, only by a definitive "invalid" from Gumroad.
+ */
+async function recheckLicense(): Promise<void> {
+  const doc = await loadLicenseDocument();
+
+  if (!doc.licenseKey) {
+    return;
+  }
+
+  const result = await verifyLicenseWithGumroad(doc.licenseKey, { incrementUsesCount: false });
+
+  if (!result.ok) {
+    return;
+  }
+
+  await saveLicenseDocument({
+    ...doc,
+    verification: {
+      valid: result.data.valid,
+      checkedAtIso: new Date().toISOString(),
+      ...(result.data.valid ? {} : { reason: result.data.reason }),
+    },
+  });
 }

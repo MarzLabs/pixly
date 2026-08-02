@@ -31,6 +31,20 @@ export type ContentToBackgroundMessage = { type: 'pixly/capture-visible-tab' };
 /** Service worker reply to a capture request. */
 export type CaptureReply = { ok: true; dataUrl: string } | { ok: false; error: string };
 
+/**
+ * Sent by the popup to the service worker to manage the Gumroad Pro license. Verification lives
+ * in the worker so the popup (which the user may close mid-flight) never owns the network call.
+ */
+export type LicenseMessage =
+  | { type: 'pixly/activate-license'; licenseKey: string }
+  | { type: 'pixly/remove-license' };
+
+/** Service worker reply to a license action. */
+export type LicenseReply = { ok: true } | { ok: false; error: string };
+
+/** Everything the service worker's message listener can receive. */
+export type BackgroundInboundMessage = ContentToBackgroundMessage | LicenseMessage;
+
 /** Reply describing what the content script knows about the current page. */
 export interface PageContext {
   href: string;

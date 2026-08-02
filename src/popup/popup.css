@@ -329,3 +329,152 @@ body {
   color: var(--pixly-color-text);
   font-weight: 600;
 }
+
+/*
+ * Plan banner (trial countdown / free-plan notice). One slim row above the grid — informative,
+ * never an interstitial: it does not overlay or disable anything.
+ */
+.license-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px var(--popup-grid-padding) 0;
+  padding: 6px 10px;
+  border: 1px solid var(--pixly-color-border);
+  border-radius: var(--pixly-radius-small);
+  background: var(--pixly-color-surface-raised);
+  font-size: 11px;
+}
+
+.license-banner__text {
+  flex: 1;
+  color: var(--pixly-color-text-muted);
+}
+
+.license-banner__cta {
+  padding: 3px 8px;
+  border-radius: var(--pixly-radius-small);
+  background: var(--pixly-color-brand);
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.license-banner__cta:hover {
+  background: var(--pixly-color-brand-hover);
+}
+
+.license-banner__key {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--pixly-color-text-muted);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.license-banner__key:hover,
+.license-banner__key[aria-expanded='true'] {
+  color: var(--pixly-color-text);
+}
+
+/* Expandable license-key form under the banner. */
+.license-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 6px var(--popup-grid-padding) 0;
+}
+
+.license-form input[type='text'] {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  background: var(--pixly-color-surface-raised);
+  border: 1px solid var(--pixly-color-border);
+  border-radius: var(--pixly-radius-small);
+  color: var(--pixly-color-text);
+  font-size: 11px;
+}
+
+.license-form button[type='submit'] {
+  padding: 6px 10px;
+  border: none;
+  border-radius: var(--pixly-radius-small);
+  background: var(--pixly-color-brand);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.license-form button[type='submit']:hover:not(:disabled) {
+  background: var(--pixly-color-brand-hover);
+}
+
+.license-form button[type='submit']:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.license-form__error {
+  flex-basis: 100%;
+  color: var(--pixly-color-danger);
+  font-size: 10px;
+}
+
+/* Corner tag on tiles locked behind the Pro plan (mirrors the "?" badge on the other corner). */
+.tool-tile__pro {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  padding: 1px 3px;
+  border: 1px solid var(--pixly-color-brand);
+  border-radius: 3px;
+  color: var(--pixly-color-brand);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  pointer-events: none;
+}
+
+/* Header "PRO" chip shown while a license is active; opens the masked key + remove action. */
+.pro-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pro-badge__chip {
+  padding: 2px 6px;
+  border: 1px solid var(--pixly-color-brand);
+  border-radius: 4px;
+  background: none;
+  color: var(--pixly-color-brand);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.pro-badge__detail {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--pixly-color-text-muted);
+  font-size: 10px;
+}
+
+.pro-badge__remove {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--pixly-color-danger);
+  font-size: 10px;
+  text-decoration: underline;
+  cursor: pointer;
+}
