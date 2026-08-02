@@ -113,10 +113,7 @@ export function PopupApp() {
   const detailEntry = TOOL_CATALOG.find((entry) => entry.id === detailToolId) ?? null;
   const hoveredEntry = TOOL_CATALOG.find((entry) => entry.id === hoveredToolId) ?? null;
   // Until the license document loads (one storage read), render without locks to avoid a flash.
-  const planInfo = useMemo(
-    () => (license ? computePlan(license, Date.now()) : null),
-    [license],
-  );
+  const planInfo = useMemo(() => (license ? computePlan(license, Date.now()) : null), [license]);
   const freePlan = planInfo?.plan === 'free';
 
   return (
