@@ -6,14 +6,15 @@ import {
 } from './license-plan';
 
 /**
- * Gumroad product identity. The permalink is the short code in the product URL — the same slug
- * that appears in the product's edit URL on gumroad.com. The product must have "Generate a
- * unique license key per sale" enabled in its settings for /licenses/verify to work.
+ * Gumroad product identity. The verify endpoint rejects the legacy product_permalink for this
+ * product ("The 'product_id' parameter is required...") and demands this opaque id, which Gumroad
+ * echoes as `purchase.product_id` in verify responses. The product must have "Generate a unique
+ * license key per sale" enabled in its settings for /licenses/verify to work.
  */
-export const GUMROAD_PRODUCT_PERMALINK = 'jgeirw';
+export const GUMROAD_PRODUCT_ID = 'z33UKg4raNoN4K3cZnUQEA==';
 
 /** Public checkout page opened from the popup's upgrade links. */
-export const GUMROAD_PRODUCT_URL = `https://gumroad.com/l/${GUMROAD_PRODUCT_PERMALINK}`;
+export const GUMROAD_PRODUCT_URL = 'https://marzlabs.gumroad.com/l/pixly';
 
 const VERIFY_ENDPOINT = 'https://api.gumroad.com/v2/licenses/verify';
 
@@ -30,7 +31,7 @@ export async function verifyLicenseWithGumroad(
   options: { incrementUsesCount: boolean },
 ): Promise<Result<VerificationOutcome>> {
   const params = new URLSearchParams({
-    product_permalink: GUMROAD_PRODUCT_PERMALINK,
+    product_id: GUMROAD_PRODUCT_ID,
     license_key: licenseKey,
     increment_uses_count: String(options.incrementUsesCount),
   });
