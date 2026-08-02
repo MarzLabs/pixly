@@ -40,6 +40,14 @@ lives in the popup instead. Keyboard shortcuts (rebindable at `chrome://extensio
 `Alt+Shift+P` toggles the toolbar, `Alt+Shift+O` toggles the overlay; with the overlay focused,
 arrow keys nudge it (Shift for 10px) and `[` / `]` step its opacity.
 
+## Licensing
+
+Pixly ships with a 15-day full trial, then a free plan (Fix Broken Images, Global Outlines,
+Grid Overlay) and a Pro plan unlocked by a one-time [Gumroad](https://marzlabs.gumroad.com/l/pixly)
+license (2 devices per seat). The plan banner in the popup is intentionally non-blocking — no
+interstitials. See [docs/LICENSING.md](docs/LICENSING.md) for the architecture, the seat-limit
+mechanics, and the **known limitations and support playbook** (freeing seats, trial caveats).
+
 ## Tech stack
 
 - **Vite** + **@crxjs/vite-plugin** (MV3 bundling with HMR)
@@ -78,6 +86,9 @@ Pixly follows least privilege (no permanent `<all_urls>` grant):
 
 - `activeTab` + `scripting` — act on the tab you are using.
 - `storage` — persist light per-site config in `chrome.storage.local`.
+- `alarms` — daily re-check of the Gumroad license in the service worker.
+- `https://api.gumroad.com/*` host permission — the only fixed host grant; license verification
+  calls, nothing else.
 - Overlay image binaries are stored in **IndexedDB** to avoid storage-quota limits.
 
 ## Architecture
