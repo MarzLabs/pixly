@@ -74,6 +74,8 @@ export function computePlan(doc: LicenseDocument, nowMs: number): PlanInfo {
 export interface GumroadPurchase {
   refunded?: boolean;
   chargebacked?: boolean;
+  /** Seats bought at checkout (multi-seat product); 1 for a plain purchase. */
+  quantity?: number;
   /** Membership products only; null/absent for one-time purchases. */
   subscription_ended_at?: string | null;
   subscription_cancelled_at?: string | null;
@@ -84,10 +86,22 @@ export interface GumroadPurchase {
 export interface GumroadVerifyBody {
   success?: boolean;
   message?: string;
+  /** Times the key was verified with increment_uses_count=true — Pixly's activation counter. */
+  uses?: number;
   purchase?: GumroadPurchase;
 }
 
-export type VerificationOutcome = { valid: true } | { valid: false; reason: string };
+export type VerificationOutcome =
+  | { valid: true; uses: number | null; quantity: number }
+  | { valid: false; reason: string };
+
+/** Devices one purchased seat may activate: the $10 license covers 2 machines. */
+export const ACTIVATIONS_PER_SEAT = 2;
+
+/** Max device activations for a purchase (quantity is pre-normalized to a positive integer). */
+export function maxActivations(quantity: number): number {
+  return quantity * ACTIVATIONS_PER_SEAT;
+}
 
 /**
  * Maps a Gumroad verify HTTP response to a definitive outcome, or null when the response is
@@ -133,5 +147,12 @@ export function interpretVerifyResponse(
     return { valid: false, reason: 'The subscription is no longer active.' };
   }
 
-  return { valid: true };
+  return {
+    valid: true,
+    uses: typeof body.uses === 'number' ? body.uses : null,
+    quantity:
+      typeof purchase.quantity === 'number' && purchase.quantity >= 1
+        ? Math.floor(purchase.quantity)
+        : 1,
+  };
 }

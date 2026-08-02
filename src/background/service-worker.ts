@@ -7,6 +7,7 @@ import type {
 } from '@shared/messaging/messages';
 import { sendToTab } from '@shared/messaging/send';
 import { verifyLicenseWithGumroad } from '@shared/licensing/gumroad';
+import { maxActivations } from '@shared/licensing/license-plan';
 import {
   ensureTrialSeeded,
   loadLicenseDocument,
@@ -112,8 +113,11 @@ function captureVisibleTab(windowId: number | undefined): Promise<string> {
 }
 
 /**
- * Verifies a key the user pasted in the popup and stores it only when Gumroad confirms it.
- * This is the one call that increments the Gumroad "uses" counter (it means "activations").
+ * Verifies a key the user pasted in the popup and stores it only when Gumroad confirms it,
+ * enforcing the seat limit: each purchased seat covers {@link ACTIVATIONS_PER_SEAT} devices,
+ * counted through Gumroad's "uses" counter. The check runs against a non-incrementing probe
+ * first, so a rejected attempt (seats exhausted, refunded key) never burns an activation; only
+ * the follow-up commit call increments the counter.
  */
 async function activateLicense(licenseKey: string): Promise<LicenseReply> {
   const key = licenseKey.trim();
@@ -122,17 +126,41 @@ async function activateLicense(licenseKey: string): Promise<LicenseReply> {
     return { ok: false, error: 'Enter a license key.' };
   }
 
-  const result = await verifyLicenseWithGumroad(key, { incrementUsesCount: true });
-
-  if (!result.ok) {
-    return { ok: false, error: result.error };
-  }
-
-  if (!result.data.valid) {
-    return { ok: false, error: result.data.reason };
-  }
-
   const doc = await loadLicenseDocument();
+  // Re-activating the key this device already holds must be idempotent, not eat a second seat.
+  const alreadyActive = doc.licenseKey === key;
+
+  const probe = await verifyLicenseWithGumroad(key, { incrementUsesCount: false });
+
+  if (!probe.ok) {
+    return { ok: false, error: probe.error };
+  }
+
+  if (!probe.data.valid) {
+    return { ok: false, error: probe.data.reason };
+  }
+
+  if (!alreadyActive) {
+    const allowed = maxActivations(probe.data.quantity);
+
+    if (probe.data.uses !== null && probe.data.uses >= allowed) {
+      return {
+        ok: false,
+        error: `This license is already activated on its maximum of ${allowed} devices.`,
+      };
+    }
+
+    const commit = await verifyLicenseWithGumroad(key, { incrementUsesCount: true });
+
+    if (!commit.ok) {
+      return { ok: false, error: commit.error };
+    }
+
+    if (!commit.data.valid) {
+      return { ok: false, error: commit.data.reason };
+    }
+  }
+
   await saveLicenseDocument({
     ...doc,
     licenseKey: key,

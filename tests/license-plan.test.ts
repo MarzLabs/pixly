@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { TOOL_ID } from '@shared/constants';
 import {
+  ACTIVATIONS_PER_SEAT,
   computePlan,
   createEmptyLicenseDocument,
   FREE_TOOL_IDS,
   interpretVerifyResponse,
   isProTool,
+  maxActivations,
   TRIAL_DURATION_DAYS,
   type LicenseDocument,
 } from '@shared/licensing/license-plan';
@@ -69,10 +71,20 @@ describe('plan computation', () => {
 });
 
 describe('gumroad verify response interpretation', () => {
-  it('accepts a clean successful purchase', () => {
-    const outcome = interpretVerifyResponse(200, { success: true, purchase: { refunded: false } });
+  it('accepts a clean successful purchase, extracting activation count and seats', () => {
+    const outcome = interpretVerifyResponse(200, {
+      success: true,
+      uses: 1,
+      purchase: { refunded: false, quantity: 3 },
+    });
 
-    expect(outcome).toEqual({ valid: true });
+    expect(outcome).toEqual({ valid: true, uses: 1, quantity: 3 });
+  });
+
+  it('defaults to one seat and unknown uses when Gumroad omits the fields', () => {
+    const outcome = interpretVerifyResponse(200, { success: true, purchase: {} });
+
+    expect(outcome).toEqual({ valid: true, uses: null, quantity: 1 });
   });
 
   it.each([
@@ -112,6 +124,22 @@ describe('gumroad verify response interpretation', () => {
     ['success without purchase payload', 200, { success: true }],
   ])('is indeterminate on %s (never changes the stored verdict)', (_label, status, body) => {
     expect(interpretVerifyResponse(status, body)).toBeNull();
+  });
+});
+
+describe('seat limit', () => {
+  it('allows two devices per purchased seat', () => {
+    expect(ACTIVATIONS_PER_SEAT).toBe(2);
+    expect(maxActivations(1)).toBe(2);
+    expect(maxActivations(3)).toBe(6);
+  });
+
+  it('normalizes bogus quantities from the API to a single seat', () => {
+    for (const quantity of [0, -2, 1.9, Number.NaN]) {
+      const outcome = interpretVerifyResponse(200, { success: true, purchase: { quantity } });
+
+      expect(outcome && outcome.valid && outcome.quantity).toBe(1);
+    }
   });
 });
 
